@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# The verdict: runs every check that applies to what exists in the repo today.
+#
+#   scripts/verify           harness, backend, frontend (including the build)
+#   scripts/verify --quick   skips the frontend build and anything that calls a paid API
+#   scripts/verify --golden  adds the golden conversations (live Mistral API, needs MISTRAL_API_KEY)
+#
+# Exits 0 when every check passes, 1 otherwise. Written for the macOS system bash (3.2).
+
+set -o pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root" || exit 1
+
+quick=false
+golden=false
+for arg in "$@"; do
+  case "$arg" in
+    --quick) quick=true ;;
+    --golden) golden=true ;;
+    *) echo "unknown option: $arg" >&2; exit 64 ;;
+  esac
+done
+
+failed=0
+failures=""
+
+ok()   { printf '  ok    %s\n' "$1"; }
+warn() { printf '  warn  %s\n' "$1"; }
+bad()  { printf '  fail  %s\n' "$1"; failed=$((failed + 1)); failures="${failures}  - $1"$'\n'; }
+
+# run <label> <command...>: pass or fail on the exit code, with the tail of the output on failure
+run() {
+  local label="$1" out
+  shift
+  if out="$("$@" 2>&1)"; then
+    ok "$label"
+  else
+    bad "$label"
+    printf '%s\n' "$out" | tail -n 25 | sed 's/^/        /'
+  fi
+}
+
+# ------------------------------------------------------------------ harness
+echo "harness"
+
+if [ -f AGENTS.md ]; then
+  lines=$(wc -l < AGENTS.md | tr -d ' ')
+  if [ "$lines" -le 150 ]; then ok "AGENTS.md is $lines lines"; else bad "AGENTS.md is $lines lines (limit 150)"; fi
+else
+  bad "AGENTS.md is missing"
+fi
+
+if grep -qx '@AGENTS.md' CLAUDE.md 2>/dev/null; then ok "CLAUDE.md imports AGENTS.md"; else bad "CLAUDE.md does not import AGENTS.md"; fi
+
+# every context file is indexed and names its source; every indexed file exists
+before=$failed
+indexed="$(grep -oE '^\| `[^`]+\.md`' context/INDEX.md 2>/dev/null | sed -E 's/^\| `//; s/`$//')"
+for f in context/*.md; do
+  name="$(basename "$f")"
+  [ "$name" = "INDEX.md" ] && continue
+  printf '%s\n' "$indexed" | grep -qx "$name" || bad "context/$name is not listed in context/INDEX.md"
+  head -n 5 "$f" | grep -q '^> Source:' || bad "context/$name has no '> Source:' line near the top"
+done
+for name in $indexed; do
+  [ -f "context/$name" ] || bad "context/INDEX.md lists $name, which does not exist"
+done
+[ "$failed" -eq "$before" ] && ok "context files indexed and sourced"
+
+before=$failed
+for d in specs/[0-9][0-9][0-9]-*/; do
+  [ -d "$d" ] || continue
+  [ -f "${d}spec.md" ] || bad "${d%/} has no spec.md"
+done
+[ "$failed" -eq "$before" ] && ok "every spec folder has a spec.md"
+
+ref=""
+if command -v jq >/dev/null 2>&1 && [ -f .claude/settings.local.json ]; then
+  ref="$(jq -r '.permissions.additionalDirectories[0] // empty' .claude/settings.local.json)"
+fi
+if [ -z "$ref" ]; then
+  warn "no reference directory configured in .claude/settings.local.json"
+elif [ -f "$ref/agents.py" ] && [ -f "$ref/frontend/src/hooks/useVoiceAgent.ts" ]; then
+  ok "reference export present"
+else
+  bad "reference export missing at $ref (recreate it with the command in context/reference-map.md)"
+fi
+
+if git check-ignore -q .env 2>/dev/null; then ok ".env is gitignored"; else bad ".env is not gitignored"; fi
+
+if [ -d backend ] || [ -d frontend ]; then
+  if grep -rqsE "(from|import)[[:space:]]+['\"]?([.]{1,2}/)*spikes" backend frontend/src 2>/dev/null; then
+    bad "app code imports from spikes/"
+  else
+    ok "app code stays independent of spikes/"
+  fi
+fi
+
+# ------------------------------------------------------------------ backend
+if [ -f backend/pyproject.toml ]; then
+  echo "backend"
+  run "ruff check" bash -c 'cd backend && uv run ruff check .'
+  run "ruff format --check" bash -c 'cd backend && uv run ruff format --check .'
+  # pytest exits 5 when it collects no test, which is fine early on
+  run "pytest, unit" bash -c 'cd backend && uv run pytest -q -m "not golden"; rc=$?; [ $rc -eq 5 ] && exit 0; exit $rc'
+  if $golden; then
+    run "pytest, golden conversations (live API)" bash -c 'cd backend && uv run pytest -q -m golden'
+  fi
+elif $golden; then
+  warn "--golden ignored: no backend yet"
+fi
+
+# ------------------------------------------------------------------ frontend
+if [ -f frontend/package.json ]; then
+  echo "frontend"
+  if [ ! -d frontend/node_modules ]; then
+    bad "frontend/node_modules missing (run npm install in frontend/)"
+  else
+    run "eslint" bash -c 'cd frontend && npm run --silent lint'
+    run "tsc --noEmit" bash -c 'cd frontend && npx --no-install tsc --noEmit'
+    if ! $quick; then
+      run "next build" bash -c 'cd frontend && npm run --silent build'
+    fi
+  fi
+fi
+
+# ------------------------------------------------------------------ verdict
+echo
+if [ "$failed" -eq 0 ]; then
+  echo "verdict: pass"
+  exit 0
+fi
+echo "verdict: fail ($failed)"
+printf '%s' "$failures"
+exit 1

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "docstral": {
+      "type": "http",
+      "url": "https://docstral-mcp.solutions.mistralsol.com/mcp"
+    }
+  }
+}
