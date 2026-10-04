@@ -1,0 +1,1232 @@
+{
+  "products": [
+    {
+      "id": "lrp-toleriane-sensitive-riche",
+      "brand": "La Roche-Posay",
+      "division": "dermatological_beauty",
+      "name": {
+        "en": "Toleriane Sensitive Rich Moisturiser",
+        "fr": "Toleriane Sensitive Riche"
+      },
+      "url": {
+        "en": "https://www.laroche-posay.co.uk/en_GB/toleriane-sensitive-skin-moisturiser/LRP_129.html",
+        "fr": "https://www.laroche-posay.fr/gammes/visage/toleriane/toleriane-sensitive-riche.-soin-hydratant-apaisant-protecteur/LRP_129.html"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": [
+        "dry"
+      ],
+      "concerns": [
+        "hydration",
+        "sensitivity"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "rich_cream",
+      "spf": null,
+      "size_ml": 40,
+      "price_eur": 14.17,
+      "price_source_url": "https://www.cocooncenter.com/la-roche-posay-toleriane-sensitive-riche-40-ml/41724.html",
+      "pairs_with": [
+        "cerave-hydrating-cleanser",
+        "lrp-anthelios-uvmune400-ff"
+      ],
+      "approved_claims": [
+        {
+          "id": "lrp-toleriane-sensitive-riche-fr-claim-1",
+          "lang": "fr",
+          "text": "La Roche-Posay Tolériane Sensitive Riche 40 ml est une crème hydratante apaisante conçue pour les peaux allergiques ou ultra-sensibles, normales à sèches.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-toleriane-sensitive-riche-40-ml/41724.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-toleriane-sensitive-riche-fr-claim-2",
+          "lang": "fr",
+          "text": "Cette crème contient aussi de la glycérine qui hydrate pendant 48 heures, du beurre de karité qui répare et protège la barrière cutanée et de la vitamine B3 apaisante.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-toleriane-sensitive-riche-40-ml/41724.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-toleriane-sensitive-riche-fr-claim-3",
+          "lang": "fr",
+          "text": "Testé sur peaux allergiques.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-toleriane-sensitive-riche-40-ml/41724.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-toleriane-sensitive-riche-en-claim-1",
+          "lang": "en",
+          "text": "The high tolerance moisturiser effectively repairs and protects skin's barrier while reducing signs of discomfort, including tightness, tingling, dryness and occasional redness.",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-toleriane-sensitive-rich-moisturiser-40ml/11855112/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-toleriane-sensitive-riche-en-claim-2",
+          "lang": "en",
+          "text": "Providing 48-hour hydration, the rich face cream envelops the visage to comfort and relieve.",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-toleriane-sensitive-rich-moisturiser-40ml/11855112/",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lrp-toleriane-sensitive-riche-fr-note-1",
+          "lang": "fr",
+          "text": "Appliquer matin et soir sur le visage et le cou, sur une peau propre et sèche.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-toleriane-sensitive-riche-40-ml/41724.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-toleriane-sensitive-riche-fr-note-2",
+          "lang": "fr",
+          "text": "Indication : Soulager les inconforts quotidiens des peaux ultra-sensibles ou allergiques.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-toleriane-sensitive-riche-40-ml/41724.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-toleriane-sensitive-riche-en-note-1",
+          "lang": "en",
+          "text": "Apply to the face and the neck morning and evening.",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-toleriane-sensitive-rich-moisturiser-40ml/11855112/",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "lrp-anthelios-uvmune400-ff",
+      "brand": "La Roche-Posay",
+      "division": "dermatological_beauty",
+      "name": {
+        "en": "Anthelios UVMune 400 Invisible Fluid SPF50+",
+        "fr": "Anthelios UVMune 400 Fluide Invisible SPF50+ Sans Parfum"
+      },
+      "url": {
+        "en": "https://www.laroche-posay.co.uk/en_GB/anthelios-uvmune-400-invisible-fluid-spf50-sun-cream-for-sensitive-skin-50ml/LRP_026.html",
+        "fr": "https://www.laroche-posay.fr/gammes/solaires/anthelios/anthelios-uvmune-400-creme-solaire-fluide-invisible-sans-parfum/LRP_026.html"
+      },
+      "category": "sunscreen",
+      "routine_step": "protect",
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination",
+        "oily"
+      ],
+      "concerns": [
+        "sensitivity"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "fluid",
+      "spf": 50,
+      "size_ml": 50,
+      "price_eur": 13.4,
+      "price_source_url": "https://www.cocooncenter.com/la-roche-posay-anthelios-uv-mune-400-fluide-invisible-spf50-sans-parfum-50-ml/77543.html",
+      "pairs_with": [
+        "cerave-hydrating-cleanser",
+        "lrp-toleriane-sensitive-riche",
+        "cerave-foaming-cleanser",
+        "cerave-oil-control-gel-cream",
+        "lop-revitalift-ff-day-cream"
+      ],
+      "approved_claims": [
+        {
+          "id": "lrp-anthelios-uvmune400-ff-fr-claim-1",
+          "lang": "fr",
+          "text": "Il aide à prévenir le stress oxydatif généré par l'infrarouge et la pollution.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-anthelios-uv-mune-400-fluide-invisible-spf50-sans-parfum-50-ml/77543.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-fr-claim-2",
+          "lang": "fr",
+          "text": "Résistant à l'eau, à la transpiration et au sable.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-anthelios-uv-mune-400-fluide-invisible-spf50-sans-parfum-50-ml/77543.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-fr-claim-3",
+          "lang": "fr",
+          "text": "Testé sur peaux sensibles, réactives et intolérantes au soleil.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-anthelios-uv-mune-400-fluide-invisible-spf50-sans-parfum-50-ml/77543.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-en-claim-1",
+          "lang": "en",
+          "text": "A very high protection, broad spectrum (SPF 50+)",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-anthelios-uvmune-400-invisible-fluid-non-perfumed-suncream-spf50-50ml/13494906/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-en-claim-2",
+          "lang": "en",
+          "text": "Ultra-resistant to water, sweat and sand",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-anthelios-uvmune-400-invisible-fluid-non-perfumed-suncream-spf50-50ml/13494906/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-en-claim-3",
+          "lang": "en",
+          "text": "Leaves no white cast",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-anthelios-uvmune-400-invisible-fluid-non-perfumed-suncream-spf50-50ml/13494906/",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lrp-anthelios-uvmune400-ff-fr-note-1",
+          "lang": "fr",
+          "text": "Appliquer le produit juste avant l'exposition. Renouveler généreusement et fréquemment, surtout après avoir nagé, transpiré ou vous être essuyé.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-anthelios-uv-mune-400-fluide-invisible-spf50-sans-parfum-50-ml/77543.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-fr-note-2",
+          "lang": "fr",
+          "text": "En cas de contact avec les yeux, les rincer immédiatement et abondamment.",
+          "source_url": "https://www.cocooncenter.com/la-roche-posay-anthelios-uv-mune-400-fluide-invisible-spf50-sans-parfum-50-ml/77543.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-en-note-1",
+          "lang": "en",
+          "text": "Shake before use.",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-anthelios-uvmune-400-invisible-fluid-non-perfumed-suncream-spf50-50ml/13494906/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lrp-anthelios-uvmune400-ff-en-note-2",
+          "lang": "en",
+          "text": "Reapply frequently and generously to maintain protection.",
+          "source_url": "https://www.lookfantastic.com/p/la-roche-posay-anthelios-uvmune-400-invisible-fluid-non-perfumed-suncream-spf50-50ml/13494906/",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "cerave-spf30-moisturiser",
+      "brand": "CeraVe",
+      "division": "dermatological_beauty",
+      "name": {
+        "en": "AM Facial Moisturising Lotion SPF30",
+        "fr": "Crème Hydratante Visage SPF30"
+      },
+      "url": {
+        "en": "https://www.cerave.co.uk/skincare/moisturisers/am-facial-moisturising-lotion-spf30",
+        "fr": "https://www.cerave.fr/nos-produits/hydratants/creme-hydratante-visage-spf30"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": [
+        "normal",
+        "dry"
+      ],
+      "concerns": [
+        "hydration"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "light_cream",
+      "spf": 30,
+      "size_ml": 52,
+      "price_eur": 14.21,
+      "price_source_url": "https://www.cocooncenter.com/cerave-creme-hydratante-visage-spf30-52-ml/88239.html",
+      "pairs_with": [],
+      "approved_claims": [
+        {
+          "id": "cerave-spf30-moisturiser-fr-claim-1",
+          "lang": "fr",
+          "text": "Soin hydratant avec SPF30 qui hydrate et protège la peau des UV.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/creme-hydratante-visage-spf30",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-spf30-moisturiser-fr-claim-2",
+          "lang": "fr",
+          "text": "Hydratation longue durée : la Technologie MVE® libère les actifs en continu pour 24 heures d'hydratation.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/creme-hydratante-visage-spf30",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-spf30-moisturiser-fr-claim-3",
+          "lang": "fr",
+          "text": "Prévention du photovieillissement : protège des rayons UVA, et prévient ainsi l'apparition de rides et de taches pigmentaires.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/creme-hydratante-visage-spf30",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-spf30-moisturiser-en-claim-1",
+          "lang": "en",
+          "text": "Protects against broad spectrum UVA/UVB rays with SPF30, in line with NHS recommendation.",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/am-facial-moisturising-lotion-spf30",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-spf30-moisturiser-en-claim-2",
+          "lang": "en",
+          "text": "Continuous hydration for up to 24 hours",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/am-facial-moisturising-lotion-spf30",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "cerave-spf30-moisturiser-fr-note-1",
+          "lang": "fr",
+          "text": "Appliquer chaque matin comme dernière étape de la routine de soins, après le sérum et avant le maquillage.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/creme-hydratante-visage-spf30",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-spf30-moisturiser-fr-note-2",
+          "lang": "fr",
+          "text": "Éviter le contour des yeux. En cas de contact, rincer immédiatement.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/creme-hydratante-visage-spf30",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-spf30-moisturiser-en-note-1",
+          "lang": "en",
+          "text": "Apply liberally to face and neck in the morning.",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/am-facial-moisturising-lotion-spf30",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-spf30-moisturiser-en-note-2",
+          "lang": "en",
+          "text": "Avoid contact with eyes. If contact occurs rinse thoroughly with water.",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/am-facial-moisturising-lotion-spf30",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "cerave-moisturising-cream",
+      "brand": "CeraVe",
+      "division": "dermatological_beauty",
+      "name": {
+        "en": "Moisturising Cream",
+        "fr": "Baume Hydratant"
+      },
+      "url": {
+        "en": "https://www.cerave.co.uk/skincare/moisturisers/moisturising-cream",
+        "fr": "https://www.cerave.fr/nos-produits/hydratants/baume-hydratant"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": [
+        "dry"
+      ],
+      "concerns": [
+        "hydration"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "rich_cream",
+      "spf": null,
+      "size_ml": 454,
+      "price_eur": 13.89,
+      "price_source_url": "https://www.cocooncenter.com/cerave-baume-hydratant-454-g/36039.html",
+      "pairs_with": [],
+      "approved_claims": [
+        {
+          "id": "cerave-moisturising-cream-fr-claim-1",
+          "lang": "fr",
+          "text": "Soin à la texture riche qui hydrate la peau en continu 48H.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/baume-hydratant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-moisturising-cream-fr-claim-2",
+          "lang": "fr",
+          "text": "Action hydratante intense : hydrate la peau en continu grâce à la Technologie MVE® qui libère progressivement les actifs.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/baume-hydratant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-moisturising-cream-fr-claim-3",
+          "lang": "fr",
+          "text": "Action protectrice : forme un film protecteur qui empêche l'eau de s'évaporer grâce au Petrolatum.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/baume-hydratant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-moisturising-cream-en-claim-1",
+          "lang": "en",
+          "text": "Rich cream which helps hydrate & protect the skin's natural barrier",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/moisturising-cream",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-moisturising-cream-en-claim-2",
+          "lang": "en",
+          "text": "MVE Technology: This delivery system continually releases moisturising ingredients for 24-hour hydration",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/moisturising-cream",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "cerave-moisturising-cream-fr-note-1",
+          "lang": "fr",
+          "text": "Appliquer matin et/ou soir sur une peau propre et sèche.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/baume-hydratant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-moisturising-cream-fr-note-2",
+          "lang": "fr",
+          "text": "Éviter le contour des yeux. En cas de contact, rincer immédiatement.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/baume-hydratant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-moisturising-cream-en-note-1",
+          "lang": "en",
+          "text": "Apply liberally as often as needed, or as directed by a physician",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/moisturising-cream",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "cerave-oil-control-gel-cream",
+      "brand": "CeraVe",
+      "division": "dermatological_beauty",
+      "name": {
+        "en": "Oil Control Moisturising Gel-Cream",
+        "fr": "Gel-Crème Hydratant Oil Control Visage"
+      },
+      "url": {
+        "en": "https://www.cerave.co.uk/skincare/moisturisers/oil-control-moisturising-gel-cream",
+        "fr": "https://www.cerave.fr/nos-produits/hydratants/hydratants-visage/gel-creme-hydratant-oil-control-visage"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": [
+        "combination",
+        "oily"
+      ],
+      "concerns": [
+        "blemish_prone"
+      ],
+      "suitable_for_sensitive": false,
+      "fragrance_free": true,
+      "texture": "gel_cream",
+      "spf": null,
+      "size_ml": 52,
+      "price_eur": 14.9,
+      "price_source_url": "https://www.cocooncenter.com/cerave-gel-creme-hydratant-oil-control-peaux-mixtes-a-grasses-52-ml/102025.html",
+      "pairs_with": [
+        "cerave-foaming-cleanser",
+        "lrp-anthelios-uvmune400-ff"
+      ],
+      "approved_claims": [
+        {
+          "id": "cerave-oil-control-gel-cream-fr-claim-1",
+          "lang": "fr",
+          "text": "Niacinamide : actif anti-inflammatoire pour apaiser la peau",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/hydratants-visage/gel-creme-hydratant-oil-control-visage",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-oil-control-gel-cream-fr-claim-2",
+          "lang": "fr",
+          "text": "Technologie MVE® : diffusion prolongée des actifs pour une hydratation continue toute la journée",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/hydratants-visage/gel-creme-hydratant-oil-control-visage",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-oil-control-gel-cream-en-claim-1",
+          "lang": "en",
+          "text": "Helps absorb excess oil to provide all day hydration & shine control.",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/oil-control-moisturising-gel-cream",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-oil-control-gel-cream-en-claim-2",
+          "lang": "en",
+          "text": "Lightweight & non-comedogenic gel-cream formula",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/oil-control-moisturising-gel-cream",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "cerave-oil-control-gel-cream-fr-note-1",
+          "lang": "fr",
+          "text": "Appliquer généreusement sur le visage et le cou tous les jours.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/hydratants-visage/gel-creme-hydratant-oil-control-visage",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-oil-control-gel-cream-fr-note-2",
+          "lang": "fr",
+          "text": "Éviter le contact direct avec les yeux. En cas de contact, rincer abondamment à l'eau.",
+          "source_url": "https://www.cerave.fr/nos-produits/hydratants/hydratants-visage/gel-creme-hydratant-oil-control-visage",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-oil-control-gel-cream-en-note-1",
+          "lang": "en",
+          "text": "Apply liberally to face and neck in the morning.",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/oil-control-moisturising-gel-cream",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-oil-control-gel-cream-en-note-2",
+          "lang": "en",
+          "text": "Avoid contact with eyes. If contact occurs rinse thoroughly with water.",
+          "source_url": "https://www.cerave.co.uk/skincare/moisturisers/oil-control-moisturising-gel-cream",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "cerave-hydrating-cleanser",
+      "brand": "CeraVe",
+      "division": "dermatological_beauty",
+      "name": {
+        "en": "Hydrating Cleanser",
+        "fr": "Crème Lavante Hydratante"
+      },
+      "url": {
+        "en": "https://www.cerave.co.uk/skincare/cleansers/hydrating-cleanser",
+        "fr": "https://www.cerave.fr/nos-produits/nettoyants/creme-lavante-hydratante"
+      },
+      "category": "cleanser",
+      "routine_step": "cleanse",
+      "skin_types": [
+        "normal",
+        "dry"
+      ],
+      "concerns": [
+        "hydration"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "light_cream",
+      "spf": null,
+      "size_ml": 236,
+      "price_eur": 7.45,
+      "price_source_url": "https://www.cocooncenter.com/cerave-creme-lavante-hydratante-236-ml/36386.html",
+      "pairs_with": [
+        "lrp-toleriane-sensitive-riche",
+        "lrp-anthelios-uvmune400-ff",
+        "lop-revitalift-ff-day-cream"
+      ],
+      "approved_claims": [
+        {
+          "id": "cerave-hydrating-cleanser-fr-claim-1",
+          "lang": "fr",
+          "text": "Nettoyant à la texture crème qui nettoie et hydrate en douceur.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/creme-lavante-hydratante",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-hydrating-cleanser-fr-claim-2",
+          "lang": "fr",
+          "text": "Acide hyaluronique : aide à maintenir l'hydratation.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/creme-lavante-hydratante",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-hydrating-cleanser-fr-claim-3",
+          "lang": "fr",
+          "text": "3 céramides essentiels (1, 3, 6-II) : aident à restaurer la barrière cutanée.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/creme-lavante-hydratante",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-hydrating-cleanser-en-claim-1",
+          "lang": "en",
+          "text": "Gently removes dirt, oil and makeup without leaving skin tight or dry",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/hydrating-cleanser",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-hydrating-cleanser-en-claim-2",
+          "lang": "en",
+          "text": "Ceramides: Help maintain the skin's natural barrier",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/hydrating-cleanser",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "cerave-hydrating-cleanser-fr-note-1",
+          "lang": "fr",
+          "text": "Utilisation quotidienne matin et soir.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/creme-lavante-hydratante",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-hydrating-cleanser-fr-note-2",
+          "lang": "fr",
+          "text": "Eviter le contour des yeux. En cas de contact, rincer abondamment et immédiatement.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/creme-lavante-hydratante",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-hydrating-cleanser-en-note-1",
+          "lang": "en",
+          "text": "Wet skin with lukewarm water",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/hydrating-cleanser",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-hydrating-cleanser-en-note-2",
+          "lang": "en",
+          "text": "Massage cleanser into skin in a gentle, circular motion",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/hydrating-cleanser",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "cerave-foaming-cleanser",
+      "brand": "CeraVe",
+      "division": "dermatological_beauty",
+      "name": {
+        "en": "Foaming Cleanser",
+        "fr": "Gel Moussant"
+      },
+      "url": {
+        "en": "https://www.cerave.co.uk/skincare/cleansers/foaming-cleanser",
+        "fr": "https://www.cerave.fr/nos-produits/nettoyants/gel-moussant"
+      },
+      "category": "cleanser",
+      "routine_step": "cleanse",
+      "skin_types": [
+        "normal",
+        "oily"
+      ],
+      "concerns": [
+        "blemish_prone"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "foam",
+      "spf": null,
+      "size_ml": 236,
+      "price_eur": 7.89,
+      "price_source_url": "https://www.cocooncenter.com/cerave-gel-moussant-236-ml/36040.html",
+      "pairs_with": [
+        "cerave-oil-control-gel-cream",
+        "lrp-anthelios-uvmune400-ff"
+      ],
+      "approved_claims": [
+        {
+          "id": "cerave-foaming-cleanser-fr-claim-1",
+          "lang": "fr",
+          "text": "Nettoyant à la texture moussante qui élimine l'excès de sébum",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/gel-moussant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-foaming-cleanser-fr-claim-2",
+          "lang": "fr",
+          "text": "Niacinamide : apaise la peau en douceur, aide à réduire les sensations d'irritation et les rougeurs.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/gel-moussant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-foaming-cleanser-fr-claim-3",
+          "lang": "fr",
+          "text": "3 céramides essentiels (1, 3, 6-II) : aident à restaurer la barrière cutanée.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/gel-moussant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-foaming-cleanser-en-claim-1",
+          "lang": "en",
+          "text": "Cleanses and removes oil without disrupting the protective skin barrier",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/foaming-cleanser",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-foaming-cleanser-en-claim-2",
+          "lang": "en",
+          "text": "Niacinamide: Helps calm the skin",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/foaming-cleanser",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "cerave-foaming-cleanser-fr-note-1",
+          "lang": "fr",
+          "text": "Faire mousser sur une peau humide.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/gel-moussant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-foaming-cleanser-fr-note-2",
+          "lang": "fr",
+          "text": "Masser doucement en évitant le contour des yeux. En cas de contact, rincer abondamment et immédiatement à l'eau.",
+          "source_url": "https://www.cerave.fr/nos-produits/nettoyants/gel-moussant",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-foaming-cleanser-en-note-1",
+          "lang": "en",
+          "text": "Wet skin with lukewarm water",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/foaming-cleanser",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "cerave-foaming-cleanser-en-note-2",
+          "lang": "en",
+          "text": "Massage cleanser into skin in a gentle, circular motion",
+          "source_url": "https://www.cerave.co.uk/skincare/cleansers/foaming-cleanser",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "lop-revitalift-ff-day-cream",
+      "brand": "L'Oréal Paris",
+      "division": "consumer_products",
+      "name": {
+        "en": "Revitalift Classic Fragrance Free Lifting Day Cream",
+        "fr": "Revitalift Crème de Jour Anti-Rides Sans Parfum"
+      },
+      "url": {
+        "en": "https://www.loreal-paris.co.uk/revitalift/classic/fragrance-free-lifting-day-cream-with-natural-probiotic-extracts-50ml",
+        "fr": "https://www.loreal-paris.fr/soin/soin-par-categorie/creme-de-jour/revitalift-creme-de-jour-anti-rides-sans-parfum/OAP7117.html"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": [],
+      "concerns": [
+        "firmness_wrinkles",
+        "sensitivity"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "rich_cream",
+      "spf": null,
+      "size_ml": 50,
+      "price_eur": 13.35,
+      "price_source_url": "https://www.my-origines.com/fr/revitalift-P9201017.html",
+      "pairs_with": [
+        "cerave-hydrating-cleanser",
+        "lrp-anthelios-uvmune400-ff"
+      ],
+      "approved_claims": [
+        {
+          "id": "lop-revitalift-ff-day-cream-en-claim-1",
+          "lang": "en",
+          "text": "Discover a luxurious anti-wrinkle and firming cream.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/classic/fragrance-free-lifting-day-cream-with-natural-probiotic-extracts-50ml",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-ff-day-cream-en-claim-2",
+          "lang": "en",
+          "text": "Formulated with Pro-Retinol & Probiotic Extracts, to lift the skin, reduce the appearance of wrinkles and help skin achieve a healthy looking glow.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/classic/fragrance-free-lifting-day-cream-with-natural-probiotic-extracts-50ml",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-ff-day-cream-fr-claim-1",
+          "lang": "fr",
+          "text": "Crème anti-rides et extra-fermeté, aux extraits de probiotique liftant d'origine naturelle, pour un effet lifting en 2 semaines seulement.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-P9201017.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-ff-day-cream-fr-claim-2",
+          "lang": "fr",
+          "text": "Notre crème Revitalift aide à combattre les premiers signes de l'âge, il réduit les rides et ridules.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-P9201017.html",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lop-revitalift-ff-day-cream-en-note-1",
+          "lang": "en",
+          "text": "Apply the FRAGRANCE-FREE cream every day with upwards movements on a thoroughly cleansed face and neck.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/classic/fragrance-free-lifting-day-cream-with-natural-probiotic-extracts-50ml",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-ff-day-cream-fr-note-1",
+          "lang": "fr",
+          "text": "S'applique sur le visage et le cou nettoyés en appliquant par mouvements ascendants du bas du visage vers le haut.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-P9201017.html",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "lop-revitalift-filler-gel-cream",
+      "brand": "L'Oréal Paris",
+      "division": "consumer_products",
+      "name": {
+        "en": "Revitalift Filler Plumping Water-Cream",
+        "fr": "Revitalift Filler Gel-Crème Repulpant"
+      },
+      "url": {
+        "en": "https://www.loreal-paris.co.uk/revitalift/filler-renew/plumping-water-cream",
+        "fr": "https://www.loreal-paris.fr/soin/soin-par-categorie/creme-de-jour/revitalift-filler-gel-creme-repulpant/OAP7232.html"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination",
+        "oily"
+      ],
+      "concerns": [
+        "firmness_wrinkles",
+        "hydration"
+      ],
+      "suitable_for_sensitive": false,
+      "fragrance_free": false,
+      "texture": "gel_cream",
+      "spf": null,
+      "size_ml": 50,
+      "price_eur": 24.99,
+      "price_source_url": "https://www.my-origines.com/fr/revitalift-filler-P9201019.html",
+      "pairs_with": [
+        "lop-revitalift-clinical-vitc-serum",
+        "lop-revitalift-clinical-spf50-fluid"
+      ],
+      "approved_claims": [
+        {
+          "id": "lop-revitalift-filler-gel-cream-en-claim-1",
+          "lang": "en",
+          "text": "The Revitalift Filler Water-Cream does not leave the skin feeling greasy.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/filler-renew/plumping-water-cream",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-filler-gel-cream-en-claim-2",
+          "lang": "en",
+          "text": "Formulated with two types of hyaluronic acid.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/filler-renew/plumping-water-cream",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-filler-gel-cream-fr-claim-1",
+          "lang": "fr",
+          "text": "Le Gel-Crème Repulpant est enrichi avec 2 types d'Acide Hyaluronique.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-filler-P9201019.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-filler-gel-cream-fr-claim-2",
+          "lang": "fr",
+          "text": "L'Acide Hyaluronique Micro repulpe intensément ridules et rides.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-filler-P9201019.html",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lop-revitalift-filler-gel-cream-en-note-1",
+          "lang": "en",
+          "text": "Apply one dose of the Water-Cream every morning and every night on a thoroughly cleansed face and neck.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/filler-renew/plumping-water-cream",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-filler-gel-cream-en-note-2",
+          "lang": "en",
+          "text": "In case of contact with the eyes, rinse immediately and thoroughly",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/filler-renew/plumping-water-cream",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-filler-gel-cream-fr-note-1",
+          "lang": "fr",
+          "text": "Matin et soir, appliquez une dose de Gel-Crème sur le visage et le cou préalablement nettoyés.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-filler-P9201019.html",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "lop-revitalift-clinical-spf50-fluid",
+      "brand": "L'Oréal Paris",
+      "division": "consumer_products",
+      "name": {
+        "en": "Revitalift Clinical SPF50 + Vitamin C Daily Invisible Fluid",
+        "fr": "Revitalift Clinical Fluide Anti-UV FPS 50+ Vitamine C"
+      },
+      "url": {
+        "en": "https://www.loreal-paris.co.uk/revitalift/clinical/vitamin-c-anti-uv-fluid",
+        "fr": "https://www.loreal-paris.fr/soin/soin-par-categorie/creme-de-jour/revitalift-clinical-vitamine-c-fluide-fps-50-/OAP7231.html"
+      },
+      "category": "sunscreen",
+      "routine_step": "protect",
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination",
+        "oily"
+      ],
+      "concerns": [
+        "first_signs_of_ageing",
+        "radiance"
+      ],
+      "suitable_for_sensitive": false,
+      "fragrance_free": false,
+      "texture": "fluid",
+      "spf": 50,
+      "size_ml": 50,
+      "price_eur": 19.99,
+      "price_source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201033.html",
+      "pairs_with": [
+        "lop-revitalift-clinical-vitc-serum",
+        "lop-revitalift-filler-gel-cream"
+      ],
+      "approved_claims": [
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-en-claim-1",
+          "lang": "en",
+          "text": "Discover our breakthrough UV protection combined with antioxidant Vitamin C in an invisible daily moisturising texture.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/clinical/vitamin-c-anti-uv-fluid",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-en-claim-2",
+          "lang": "en",
+          "text": "Prevent signs of ageing induced by UV: dark spots, wrinkles and uneven skin tone.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/clinical/vitamin-c-anti-uv-fluid",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-fr-claim-1",
+          "lang": "fr",
+          "text": "Le Fluide Anti-UV FPS 50+ Revitalift Clinical est enrichi en Vitamine C* antioxydante pour prévenir le photovieillissement et le stress oxydatif induits par les rayons UVB et UVA et la pollution.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201033.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-fr-claim-2",
+          "lang": "fr",
+          "text": "Il contient également de la Vitamine E pour booster l'efficacité antioxydante et de la Glycérine et Acide Hyaluronique pour restaurer l'hydratation.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201033.html",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-en-note-1",
+          "lang": "en",
+          "text": "Shake well before application.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/clinical/vitamin-c-anti-uv-fluid",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-en-note-2",
+          "lang": "en",
+          "text": "Every morning apply evenly as a moisturiser or after your skincare routine and before makeup.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/clinical/vitamin-c-anti-uv-fluid",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-fr-note-1",
+          "lang": "fr",
+          "text": "Bien agiter avant l'application.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201033.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-spf50-fluid-fr-note-2",
+          "lang": "fr",
+          "text": "Application possible sur la paupière et le contour des yeux.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201033.html",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "lop-revitalift-clinical-vitc-serum",
+      "brand": "L'Oréal Paris",
+      "division": "consumer_products",
+      "name": {
+        "en": "Revitalift Clinical 12% Pure Vitamin C Serum",
+        "fr": "Revitalift Clinical Sérum 12% Vitamine C Pure"
+      },
+      "url": {
+        "en": "https://www.loreal-paris.co.uk/revitalift/clinical/12-percent-vitamin-c-serum",
+        "fr": "https://www.loreal-paris.fr/soin/soin-par-ingredients/vitamine-c/revitalift-clinical-serum-12--vitamine-c-pure/OAP7229.html"
+      },
+      "category": "serum",
+      "routine_step": "treat",
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination",
+        "oily"
+      ],
+      "concerns": [
+        "radiance",
+        "first_signs_of_ageing"
+      ],
+      "suitable_for_sensitive": true,
+      "fragrance_free": false,
+      "texture": "serum",
+      "spf": null,
+      "size_ml": 30,
+      "price_eur": 19.99,
+      "price_source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201004.html",
+      "pairs_with": [
+        "lop-revitalift-clinical-spf50-fluid",
+        "lop-revitalift-filler-gel-cream"
+      ],
+      "approved_claims": [
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-en-claim-1",
+          "lang": "en",
+          "text": "Packed with our highest concentration of pure Vitamin C, it fights uneven skin tone, smoothes skin texture, refines pores and reduces fine lines.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/clinical/12-percent-vitamin-c-serum",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-en-claim-2",
+          "lang": "en",
+          "text": "Also called L-Ascorbic Acid, Pure Vitamin C is a powerful antioxidant, and the only biological active form of Vitamin C – and the most prescribed by dermatologists.",
+          "source_url": "https://www.loreal-paris.co.uk/revitalift/clinical/12-percent-vitamin-c-serum",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-fr-claim-1",
+          "lang": "fr",
+          "text": "La Vitamine C est un antioxydant puissant qui aide à booster l'éclat naturel de la peau et lutter contre les premiers signes de l'âge.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201004.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-fr-claim-2",
+          "lang": "fr",
+          "text": "L'Acide Salicylique est un exfoliant qui aide à resserrer les pores et à lisser le grain de peau.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201004.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-fr-claim-3",
+          "lang": "fr",
+          "text": "La Vitamine E est un antioxydant qui agit avec la Vitamine C pour aider à protéger la peau du stress oxydatif.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201004.html",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-en-note-1",
+          "lang": "en",
+          "text": "When to Use: After cleansing.",
+          "source_url": "https://www.lookfantastic.com/p/l-oreal-paris-revitalift-clinical-12-pure-vitamin-c-serum-30ml/14220163/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-en-note-2",
+          "lang": "en",
+          "text": "Routine: Follow with your usual moisturiser and sun cream with minimum SPF20 protection.",
+          "source_url": "https://www.lookfantastic.com/p/l-oreal-paris-revitalift-clinical-12-pure-vitamin-c-serum-30ml/14220163/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-fr-note-1",
+          "lang": "fr",
+          "text": "Appliquer 2-3 gouttes de sérum sur le visage et le cou en évitant le contour des yeux.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201004.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-revitalift-clinical-vitc-serum-fr-note-2",
+          "lang": "fr",
+          "text": "Poursuivre avec une protection FPS 20 minimum le matin.",
+          "source_url": "https://www.my-origines.com/fr/revitalift-clinical-P9201004.html",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "lop-elseve-extraordinary-oil",
+      "brand": "L'Oréal Paris",
+      "division": "consumer_products",
+      "name": {
+        "en": "Elvive Extraordinary Oil",
+        "fr": "Elseve Huile Extraordinaire Universelle"
+      },
+      "url": {
+        "en": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/extraordinary-oil",
+        "fr": "https://www.loreal-paris.fr/cheveux/cheveux-par-categorie/huile/elseve-huile-extraordinaire-universelle/OAP3241.html"
+      },
+      "category": "haircare",
+      "routine_step": "hair",
+      "skin_types": [],
+      "concerns": [
+        "dry_hair"
+      ],
+      "suitable_for_sensitive": false,
+      "fragrance_free": false,
+      "texture": "oil",
+      "spf": null,
+      "size_ml": 100,
+      "price_eur": 12.4,
+      "price_source_url": "https://www.lookfantastic.fr/p/l-oreal-paris-hair-oil-by-elvive-extraordinary-oil-for-very-dry-hair-100ml/10849158/",
+      "pairs_with": [
+        "lop-elseve-extraordinary-oil-shampoo"
+      ],
+      "approved_claims": [
+        {
+          "id": "lop-elseve-extraordinary-oil-en-claim-1",
+          "lang": "en",
+          "text": "Enriched with a precious blend of 6 flower extracts the non-greasy feel formula leaves hair looking soft, shiny and weightless.",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/extraordinary-oil",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-en-claim-2",
+          "lang": "en",
+          "text": "This products has heat protection from up to 230°C protection.",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/extraordinary-oil",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-fr-claim-1",
+          "lang": "fr",
+          "text": "Une huile légère qui éclaircit et lisse visiblement les cheveux, éliminant les mèches rebelles pour un fini impeccable.",
+          "source_url": "https://www.lookfantastic.fr/p/l-oreal-paris-hair-oil-by-elvive-extraordinary-oil-for-very-dry-hair-100ml/10849158/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-fr-claim-2",
+          "lang": "fr",
+          "text": "Contenant un riche mélange de 6 extraits de fleurs précieuses, cette huile polyvalente donne une touche d'apesanteur et une finition parfaite de salon de coiffure aux cheveux.",
+          "source_url": "https://www.lookfantastic.fr/p/l-oreal-paris-hair-oil-by-elvive-extraordinary-oil-for-very-dry-hair-100ml/10849158/",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lop-elseve-extraordinary-oil-en-note-1",
+          "lang": "en",
+          "text": "Use before shampooing for nourishment.",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/extraordinary-oil",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-en-note-2",
+          "lang": "en",
+          "text": "Or rub 2 drops between your hands and apply evenly through lengths and ends of wet or dry hair for exceptional shine.",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/extraordinary-oil",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-fr-note-1",
+          "lang": "fr",
+          "text": "Frottez 2 gouttes précieuses dans les paumes de vos mains",
+          "source_url": "https://www.lookfantastic.fr/p/l-oreal-paris-hair-oil-by-elvive-extraordinary-oil-for-very-dry-hair-100ml/10849158/",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-fr-note-2",
+          "lang": "fr",
+          "text": "Avant le shampooing pour une nutrition luxuriante ; avant de les coiffer pour protéger et transformer vos cheveux ; comme touche de finition pour une douceur somptueuse et une brillance luxuriante",
+          "source_url": "https://www.lookfantastic.fr/p/l-oreal-paris-hair-oil-by-elvive-extraordinary-oil-for-very-dry-hair-100ml/10849158/",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "lop-elseve-extraordinary-oil-shampoo",
+      "brand": "L'Oréal Paris",
+      "division": "consumer_products",
+      "name": {
+        "en": "Elvive Extraordinary Oil Nourishing Shampoo",
+        "fr": "Elseve Huile Extraordinaire Shampooing"
+      },
+      "url": {
+        "en": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/oil-shampoo-dry-hair",
+        "fr": "https://www.loreal-paris.fr/cheveux/cheveux-par-categorie/shampoing/huile-extraordinaire-universel-shampooing/OAP7466.html"
+      },
+      "category": "haircare",
+      "routine_step": "hair",
+      "skin_types": [],
+      "concerns": [
+        "dry_hair"
+      ],
+      "suitable_for_sensitive": false,
+      "fragrance_free": false,
+      "texture": "shampoo",
+      "spf": null,
+      "size_ml": 250,
+      "price_eur": 6.6,
+      "price_source_url": "https://www.my-origines.com/fr/elseve-huile-extraordinaire-P9282014.html",
+      "pairs_with": [
+        "lop-elseve-extraordinary-oil"
+      ],
+      "approved_claims": [
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-en-claim-1",
+          "lang": "en",
+          "text": "Hair feels softer and looks healthier",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/oil-shampoo-dry-hair",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-en-claim-2",
+          "lang": "en",
+          "text": "Up to 8 weeks of nourishment",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/oil-shampoo-dry-hair",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-fr-claim-1",
+          "lang": "fr",
+          "text": "Naturellement précieuses, les huiles rares de marula et camélia nourrissent même les cheveux les plus secs.",
+          "source_url": "https://www.my-origines.com/fr/elseve-huile-extraordinaire-P9282014.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-fr-claim-2",
+          "lang": "fr",
+          "text": "Jusqu'à 8 semaines de nutrition profonde et de brillance",
+          "source_url": "https://www.my-origines.com/fr/elseve-huile-extraordinaire-P9282014.html",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-en-note-1",
+          "lang": "en",
+          "text": "Apply on wet hair, massage your scalp and rinse.",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/oil-shampoo-dry-hair",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-en-note-2",
+          "lang": "en",
+          "text": "In case of contact with eyes, rinse immediately and thoroughly.",
+          "source_url": "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/oil-shampoo-dry-hair",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-fr-note-1",
+          "lang": "fr",
+          "text": "Appliquez sur cheveux mouillés, massez le cuir chevelu et rincez.",
+          "source_url": "https://www.my-origines.com/fr/elseve-huile-extraordinaire-P9282014.html",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "lop-elseve-extraordinary-oil-shampoo-fr-note-2",
+          "lang": "fr",
+          "text": "Complétez votre routine avec l'Huile Extraordinaire Universelle.",
+          "source_url": "https://www.my-origines.com/fr/elseve-huile-extraordinaire-P9282014.html",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    }
+  ]
+}

@@ -23,6 +23,7 @@ In scope (V0):
 - The agent and tool interfaces the loop reads (002 supplies the content).
 - TTS per sentence in the active agent's voice and the session language, plus a startup cache of fixed lines per agent and language (welcome, clarify, handover, search filler).
 - In-memory sessions: create, end, expire after 30 minutes.
+- A terminal voice client (`backend/scripts/talk.py`) that runs the same loop, STT and TTS in-process with the laptop's mic and speakers. Thomas tests the flow, the voices and the timing there first, before the browser.
 - The Next.js app with the ported voice hook and one bare page.
 
 Out of scope: designed screens, cards and the latency display (003); presenter keys, reset between volunteers and fallbacks (005); barge-in and the Voice Agents SDK (deferred in 000); camera (004).
@@ -40,7 +41,7 @@ Out of scope: designed screens, cards and the latency display (003); presenter k
 | POST | `/voice/speak` | In: `agent`, `language`, `text`. Out: streamed PCM (float32, 24 kHz, mono) in that agent's voice. Voice ids stay server-side |
 | GET | `/voice/lines/{agent}/{line}/{language}` | A cached fixed line, same PCM format |
 | POST | `/turns/{turn_id}/timings` | Browser-side timings, logged with the backend ones |
-| GET | `/config` | Agents (id, display name, role label, languages, line ids) for the page |
+| GET | `/config` | Agents (id, display name, role label, line ids), the languages and the first agent, for the page |
 | GET | `/health` | Liveness and whether the Mistral key is set |
 
 ### Stream event contract
@@ -75,7 +76,7 @@ The browser records `speech_end` (last voiced frame, or the push-to-talk release
 5. When a tool listed in the agent's `tool_fillers` starts before the agent has said anything in this turn, the loop emits `line.play` with that filler.
 6. At most three tool rounds per agent per turn; the next call then runs with `tool_choice="none"`.
 
-The loop imports no catalogue, brand or prompt module. Language comes from the STT language event; if the spike finds none, a local detector restricted to English and French runs on the final transcript.
+The loop imports no catalogue, brand or prompt module. The realtime model sends no language event (STT spike), so a local detector restricted to English and French reads the final transcript, defaulting to the session language.
 
 ### Agent and tool interfaces
 
@@ -96,7 +97,9 @@ STT `voxtral-transcribe-realtime-3` (fallback `voxtral-mini-transcribe-realtime-
 ## Risks and fallbacks
 
 - Realtime-3 misbehaves on the day: switch to `voxtral-mini-transcribe-realtime-2602` in settings.
-- Realtime rejects `context_bias`: brand names go into the agents' instructions, and the catalogue matches product names loosely.
+- The chat API answers 503 in bursts (11 of 40 calls in one minute during the spike): the streamer retries once when nothing has streamed yet, then falls back to `mistral-medium-latest`.
+- `context_bias` has no SDK parameter in 3.0.0: the bridge sends it as a raw `session.update`, which realtime-3 accepts (spike: "Lancôme Hydra Zen" right in 3 of 3 runs with it, misheard without). If that path breaks, brand names stay in the agents' instructions.
+- Automatic end of speech waits 700 ms of silence (the reference waited 1.5 s, which the STT spike found was most of the delay); push-to-talk has no wait.
 - Room noise or speaker echo triggers the mic: push-to-talk.
 - Slow office network: the timings show which stage; push-to-talk removes the silence wait.
 

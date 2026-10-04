@@ -50,6 +50,7 @@ backend/
   tests/fixtures/catalogue_fixture.json     T3
   tests/golden/...                          T21
   scripts/smoke_*.py                        T8, T12, T13, T14 (manual live checks)
+  scripts/talk.py, scripts/_audio.py        T24 terminal voice client
 frontend/
   (create-next-app output), AGENTS.md       T16
   src/lib/events.ts, api.ts                 T16
@@ -81,10 +82,12 @@ LANGUAGE_NAMES: dict[Language, str] = {"en": "English", "fr": "French"}
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 
 class _Event(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # a misspelt payload key fails loudly
+
     turn_id: str
     t_ms: int = Field(ge=0, description="Milliseconds since turn.started")
 
@@ -243,8 +246,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
+from app.conversation.events import EVENT_ADAPTER
 from app.conversation.stream import ToolChoice
 from app.lang import Language
 
@@ -257,6 +261,14 @@ class UiEvent(BaseModel):
 
     type: Literal["products.shown", "basket.updated", "profile.updated"]
     payload: dict[str, Any]
+
+    @model_validator(mode="after")
+    def _payload_fits_event(self) -> UiEvent:
+        """Fail inside the tool or observer that built a bad payload, where errors are caught."""
+        if self.payload.keys() & {"type", "turn_id", "t_ms"}:
+            raise ValueError("payload must not set type, turn_id or t_ms")
+        EVENT_ADAPTER.validate_python({"type": self.type, "turn_id": "", "t_ms": 0, **self.payload})
+        return self
 
 
 class ToolResult(BaseModel):
@@ -314,19 +326,29 @@ def force(tool_name: str) -> dict[str, Any]:
 
 
 def inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
-    """Replace $ref pointers with their $defs entries so a function schema stands alone."""
+    """Replace $ref pointers with their $defs entries so a function schema stands alone.
+
+    Keys next to a $ref (a field's description or default) are kept; a self-referencing
+    model raises ValueError.
+    """
     defs = schema.get("$defs", {})
 
-    def resolve(node: Any) -> Any:
+    def resolve(node: Any, seen: tuple[str, ...] = ()) -> Any:
         if isinstance(node, dict):
             if "$ref" in node:
-                return resolve(defs[node["$ref"].rsplit("/", 1)[-1]])
-            return {k: resolve(v) for k, v in node.items() if k != "$defs"}
+                name = node["$ref"].rsplit("/", 1)[-1]
+                if name in seen:
+                    raise ValueError(f"cannot inline recursive schema {name!r}")
+                target = resolve(defs[name], (*seen, name))
+                siblings = {k: resolve(v, seen) for k, v in node.items() if k != "$ref"}
+                return {**target, **siblings}
+            return {k: resolve(v, seen) for k, v in node.items() if k != "$defs"}
         if isinstance(node, list):
-            return [resolve(v) for v in node]
+            return [resolve(v, seen) for v in node]
         return node
 
-    return resolve(schema)
+    result: dict[str, Any] = resolve(schema)
+    return result
 ```
 
 ### `backend/app/catalogue/models.py` (T3)
@@ -337,10 +359,17 @@ def inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
+from typing import Annotated
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PlainSerializer
 
 from app.lang import Language
+
+PriceEur = Annotated[
+    Decimal,
+    Field(gt=0, decimal_places=2),
+    PlainSerializer(float, return_type=float, when_used="json"),
+]
 
 
 class Division(StrEnum):
@@ -409,6 +438,8 @@ class TexturePreference(StrEnum):
 
 
 class Localized(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     en: str
     fr: str
 
@@ -417,15 +448,19 @@ class Localized(BaseModel):
 
 
 class LocalizedUrl(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     en: HttpUrl
     fr: HttpUrl
 
-    def get(self, lang: Language) -> HttpUrl:
-        return self.en if lang == "en" else self.fr
+    def get(self, lang: Language) -> str:
+        return str(self.en) if lang == "en" else str(self.fr)
 
 
 class Claim(BaseModel):
     """An approved claim or a usage note, quoted word for word from the brand page."""
+
+    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(pattern=r"^[a-z0-9-]+$")
     lang: Language
@@ -435,6 +470,8 @@ class Claim(BaseModel):
 
 
 class Product(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str = Field(pattern=r"^[a-z0-9-]+$")
     brand: str
     division: Division
@@ -449,7 +486,7 @@ class Product(BaseModel):
     texture: Texture
     spf: int | None = None
     size_ml: float = Field(gt=0)
-    price_eur: Decimal = Field(gt=0)
+    price_eur: PriceEur
     price_source_url: HttpUrl
     approved_claims: list[Claim]
     usage_notes: list[Claim]
@@ -465,6 +502,8 @@ class Product(BaseModel):
         return bool(self.claims_in(lang)) and bool(self.notes_in(lang))
 ```
 
+A misspelt key in hand-written data must fail, hence `extra="forbid"` throughout. `price_eur` keeps Decimal in Python (money stays exact) and serialises as a plain number in JSON (`PlainSerializer`, `when_used="json"`); `decimal_places=2` rejects a price with more precision than the catalogue ever needs. `LocalizedUrl.get` returns `str` because callers only ever want it for display or JSON, never for URL methods.
+
 ### `backend/app/catalogue/basket.py` (T3)
 
 ```python
@@ -475,7 +514,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.catalogue.models import Division, Product
+from app.catalogue.models import Division, PriceEur, Product
 from app.lang import Language
 
 
@@ -484,7 +523,7 @@ class BasketItem(BaseModel):
     brand: str
     name: str
     division: Division
-    price_eur: Decimal
+    price_eur: PriceEur
 
 
 class Basket(BaseModel):
@@ -579,12 +618,24 @@ class BeautyProfile(ProfileUpdate):
 
 
 def merge(profile: BeautyProfile, update: ProfileUpdate) -> BeautyProfile:
-    """Known scalars overwrite, lists grow without duplicates, consent and language stay."""
+    """Known scalars overwrite, lists grow without duplicates; consent and language stay.
+
+    A declined profile never changes again. Only `ProfileUpdate`'s own fields are
+    read from `update`, so passing a `BeautyProfile` as the update can never smuggle
+    in a consent or a language. An empty string means the visitor's words named
+    nothing, so it leaves a known scalar as it was.
+    """
+    if profile.consent is Consent.DECLINED:
+        return profile
+
     data = profile.model_dump()
-    for name, value in update.model_dump(exclude_none=True).items():
+    fields = update.model_dump(include=set(ProfileUpdate.model_fields), exclude_none=True)
+    for name, value in fields.items():
         if isinstance(value, list):
             current = data.get(name) or []
             data[name] = current + [v for v in value if v not in current]
+        elif value == "":
+            continue
         else:
             data[name] = value
     return BeautyProfile.model_validate(data)
@@ -612,14 +663,14 @@ class Session:
     id: str
     active_agent: str
     language: Language = "en"
-    history: list[dict[str, Any]] = field(default_factory=list)
-    profile: BeautyProfile = field(default_factory=BeautyProfile)
-    basket: Basket = field(default_factory=Basket)
+    history: list[dict[str, Any]] = field(default_factory=list, repr=False)
+    profile: BeautyProfile = field(default_factory=BeautyProfile, repr=False)
+    basket: Basket = field(default_factory=Basket, repr=False)
     turn_index: int = 0
     active_since_turn: int = 0
-    flags: dict[str, Any] = field(default_factory=dict)
+    flags: dict[str, Any] = field(default_factory=dict, repr=False)
     last_seen: float = 0.0
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
 
 class SessionStore:
@@ -664,6 +715,8 @@ class SessionStore:
         return len(expired)
 ```
 
+`history`, `profile`, `basket`, `flags` and `lock` carry personal data or are too large to log, so they are excluded from `repr` (`field(repr=False)`); a logged session never prints a visitor's name or answers.
+
 ## Lanes
 
 Tasks in different lanes run in parallel once their inputs exist.
@@ -675,7 +728,7 @@ Tasks in different lanes run in parallel once their inputs exist.
 | C, voice | T13, T14 | T2 is done and the STT and TTS spikes have reported |
 | D, frontend | T16, T17, T18 | T2 is done |
 | E, data | T19, T20 | the shortlist is back (T19), T3 is done (T20) |
-| Join | T15, T21, T22, T23 | their inputs are done |
+| Join | T24 first (terminal test), then T15, T21, T22, T23 | their inputs are done; the frontend lane resumes after T24 |
 
 ## Tasks
 
@@ -701,11 +754,22 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8", "httpx>=0.27"]
+dev = [
+  "pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8", "httpx>=0.27",
+  "numpy>=2.1", "sounddevice>=0.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = ["golden: live golden conversations against the Mistral API"]
 
 [tool.ruff]
@@ -738,7 +802,10 @@ class Settings(BaseSettings):
     stt_model: str = "voxtral-transcribe-realtime-3"
     stt_streaming_delay_ms: int = 300
     agent_model: str = "mistral-small-latest"
-    extractor_model: str = "ministral-8b-latest"
+    agent_fallback_model: str = "mistral-medium-latest"
+    agent_temperature: float = 0.3
+    llm_first_token_timeout_s: float = 2.5
+    extractor_model: str = "mistral-small-latest"
     judge_model: str = "mistral-medium-latest"
     tts_model: str = "voxtral-mini-tts-2603"
     tts_first_chunk_timeout_s: float = 1.5
@@ -766,10 +833,10 @@ class Settings(BaseSettings):
 
 **Files:** create `backend/app/catalogue/__init__.py`, `models.py`, `basket.py` (Contracts), `store.py`; `backend/tests/fixtures/catalogue_fixture.json`; `backend/tests/unit/test_catalogue.py`.
 
-- [ ] `store.py`: `class Catalogue` built from an iterable of `Product`, raising `ValueError` on a duplicate product id; `Catalogue.load(path)` reads `{"products": [...]}` with `TypeAdapter(list[Product])`; `get(product_id) -> Product | None`; `all() -> list[Product]`; `problems() -> list[str]` listing `pairs_with` ids that do not exist and claim ids used twice.
+- [ ] `store.py`: `class Catalogue` built from an iterable of `Product`, raising `ValueError` on a duplicate product id; `Catalogue.load(path)` reads `{"products": [...]}` as UTF-8 with `TypeAdapter(list[Product])` and fails loudly with a `ValueError` naming the file: bad JSON or a wrong top-level shape, an empty list, a validation error (naming the failing product id), or any `problems()`; `get(product_id) -> Product | None`; `all() -> list[Product]`; `problems() -> list[str]` listing `pairs_with` ids that do not exist and claim ids used twice (naming the products).
 - [ ] Fixture `catalogue_fixture.json`: six products with ids prefixed `fx-` and brands `Fixture Brand A` to `Fixture Brand C`, covering: two moisturisers for dry skin (one `rich_cream`, sensitive-safe, fragrance-free, 24.90 €; one `light_cream`, not sensitive-safe, 32.00 €), one moisturiser for oily skin (`gel_cream`, 12.50 €), one luxe moisturiser for `firmness_wrinkles` (`rich_cream`, 95.00 €), one cleanser paired with the first moisturiser, one haircare product for `dry_hair` and `frizz`. Every product has claims and notes in `en` and `fr`, except the luxe one, which has `en` only. The first moisturiser's `pairs_with` holds the cleanser. URLs use `https://example.com/...`. This file is test data only.
 - [ ] Tests: the fixture loads; a duplicate id raises; `problems()` reports a dangling `pairs_with`; `has_language("fr")` is false for the luxe fixture; `Basket.add` adds once and returns False the second time; `total_eur` sums; `divisions()` and `view()` give the expected values.
-- [ ] Add `test_real_catalogue` in the same file, marked `@pytest.mark.skipif(not DATA_PATH.exists(), reason="products.json arrives in T20")`, asserting the success criteria of spec 002: at least 18 products; every product `has_language("en")` and `has_language("fr")`; `problems() == []`; moisturisers span at least three divisions; at least two moisturisers have an SPF; at least three products are fragrance-free; the cheapest product is under 15 € and the dearest over 80 €.
+- [ ] Add `test_real_catalogue` in the same file, marked `@pytest.mark.skipif(not DATA_PATH.exists(), reason="products.json arrives in T20")`, asserting the success criteria of spec 002: at least 10 products; every product `has_language("en")` and `has_language("fr")`; `problems() == []`; moisturisers span at least two divisions; at least one moisturiser has an SPF; at least two products are fragrance-free; the cheapest product is under 15 €.
 - [ ] Check: `uv run pytest tests/unit/test_catalogue.py -q` passes, with `test_real_catalogue` skipped.
 
 ### T4: beauty profile
@@ -895,8 +962,6 @@ from app.conversation.stream import ChatStreamer
 
 log = structlog.get_logger()
 
-TRANSFER_TOOL = "transfer_to_agent"
-
 
 async def run_turn(
     session: Session,
@@ -928,14 +993,13 @@ async def run_turn(
         while True:
             agent = agents[session.active_agent]
             choice = "none" if rounds >= max_rounds else agent.tool_choice(session)
-            system = f"{agent.instructions}\n\n# Context\n{agent.context_block(session)}"
             acc = ToolCallAccumulator()
             parts: list[str] = []
             started = clock()
             first: float | None = None
             async for delta in streamer.stream(
                 model=agent.model,
-                messages=[{"role": "system", "content": system}, *session.history],
+                messages=_messages(agent, session),
                 tools=[t.schema() for t in agent.tools] or None,
                 tool_choice=choice if agent.tools else None,
             ):
@@ -965,6 +1029,7 @@ async def run_turn(
             )
             rounds += 1
             switch_to: str | None = None
+            switch_tools: set[str] = set()
             end_turn = False
             for call in calls:
                 if call.name in agent.tool_fillers and not spoken:
@@ -989,10 +1054,12 @@ async def run_turn(
                 if result.line:
                     spoken = True
                     yield LinePlay(turn_id=turn_id, t_ms=ms(), agent=agent.id, line=result.line)
-                switch_to = result.switch_to or switch_to
+                if result.switch_to:
+                    switch_to = result.switch_to
+                    switch_tools.add(call.name)
                 end_turn = end_turn or result.end_turn
             if switch_to is not None and switch_to in agents:
-                _drop_transfers(session.history)
+                _drop_tool_calls(session.history, switch_tools)
                 yield AgentSwitched(turn_id=turn_id, t_ms=ms(), from_agent=agent.id, to_agent=switch_to)
                 session.active_agent = switch_to
                 session.active_since_turn = session.turn_index
@@ -1043,6 +1110,23 @@ async def _collect(
     return events
 
 
+def _messages(agent: AgentConfig, session: Session) -> list[dict[str, Any]]:
+    """Stable instructions first, the per-turn context just before the latest visitor message.
+
+    Mistral caches prompt prefixes automatically (about 90 ms per turn, chat spike), so
+    everything before the context block stays byte-for-byte the same from turn to turn.
+    """
+    history = session.history
+    last_user = max(i for i, m in enumerate(history) if m["role"] == "user")
+    context = {"role": "system", "content": f"# Context\n{agent.context_block(session)}"}
+    return [
+        {"role": "system", "content": agent.instructions},
+        *history[:last_user],
+        context,
+        *history[last_user:],
+    ]
+
+
 def _stamp(ui: UiEvent, turn_id: str, t_ms: int) -> AnyEvent:
     return EVENT_ADAPTER.validate_python({"type": ui.type, "turn_id": turn_id, "t_ms": t_ms, **ui.payload})
 
@@ -1066,16 +1150,19 @@ def _last_assistant_text(history: list[dict[str, Any]]) -> str | None:
     return None
 
 
-def _drop_transfers(history: list[dict[str, Any]]) -> None:
-    """Remove transfer calls and their results: the new agent reads the summary in its context."""
+def _drop_tool_calls(history: list[dict[str, Any]], names: set[str]) -> None:
+    """Remove every call to the tools that switched agents, and their results.
+
+    The new agent lacks those tools and reads the handover summary in its context block.
+    """
     dropped: set[str] = set()
     kept: list[dict[str, Any]] = []
     for message in history:
         calls = message.get("tool_calls") or []
-        transfer_ids = {c["id"] for c in calls if c["function"]["name"] == TRANSFER_TOOL}
-        if transfer_ids:
-            dropped |= transfer_ids
-            remaining = [c for c in calls if c["id"] not in transfer_ids]
+        switch_ids = {c["id"] for c in calls if c["function"]["name"] in names}
+        if switch_ids:
+            dropped |= switch_ids
+            remaining = [c for c in calls if c["id"] not in switch_ids]
             if remaining:
                 kept.append({**message, "tool_calls": remaining})
             elif message.get("content"):
@@ -1087,27 +1174,29 @@ def _drop_transfers(history: list[dict[str, Any]]) -> None:
     history[:] = kept
 ```
 
-If the chat spike shows that `role: "tool"` messages need other fields, or that history must keep transfer calls, adapt `_wire`, the tool message and `_drop_transfers`, and say so in `tasks.md`.
+The chat spike (`spikes/2026-10-04-chat-engine/README.md`, section "Gotchas for the loop") confirmed these message shapes: every assistant tool call needs a `role: "tool"` message with the same `tool_call_id` before the next model call, and a history holding transfer calls is accepted by an agent whose tools lack them. Dropping the switching calls is a tidiness choice; the loop identifies them by the tool whose result asked for the switch, so it never hardcodes a tool name.
 
 - [ ] Tests (`test_loop.py`, all with `ScriptedStreamer`, a fixed fake clock and `SessionStore(first_agent="alpha", ttl_s=60)`):
   1. Text only: events are `turn.started`, the `text.delta`s, `turn.done`; history holds the user and assistant messages; `turn.done.timings.model_calls[0].first_token_ms` is set.
   2. One tool round: a delta with a `look` call split over two fragments, then a text script. Expect `tool.started`, `tool.finished(ok=True)`, `products.shown` with `turn_id` and `t_ms` stamped, then text; the second streamer call's messages end with the tool message.
   3. Filler: a `look` call before any text gives `line.play(line="filler")` before `tool.started`; the same call after a text delta gives no filler.
-  4. Switch: `alpha` calls `move`. Expect `line.play(agent="alpha", line="handover")`, `agent.switched(alpha, beta)`, then beta's text in the same turn; `session.active_agent == "beta"`; `active_since_turn == turn_index`; beta's streamer call carries beta's tools; no `move` call or result remains in history.
+  4. Switch: `alpha` calls `move`. Expect `line.play(agent="alpha", line="handover")`, `agent.switched(alpha, beta)`, then beta's text in the same turn; `session.active_agent == "beta"`; `active_since_turn == turn_index`; beta's streamer call carries beta's tools; no `move` call or result remains in history, including a `move` call from an earlier turn of the same session.
   5. End of turn: `stop` gives `line.play(line="clarify")`, no further streamer call, then `turn.done`.
   6. Round cap: a streamer that always returns a `look` call; the fourth call receives `tool_choice="none"`.
   7. Observer: an observer returning a `profile.updated` UiEvent puts that event before `turn.done`; an observer sleeping past `observer_timeout_s` is skipped and `turn.done` still arrives; a failing observer is skipped.
   8. Unknown tool name: `tool.finished(ok=False)` and the tool message carries an error; the loop carries on.
   9. Arguments that fail validation: `tool.finished(ok=False)`.
   10. A streamer raising mid-turn: an `error` event, then `turn.done`.
+  11. Message layout: the first message is the active agent's instructions alone, the context block is a system message placed right before the latest user message, and two consecutive calls in the same session share every message before that context block.
 - [ ] Check: `uv run pytest tests/unit/test_loop.py -q` passes.
 
 ### T8: Mistral streamer
 
 **Files:** create `backend/app/conversation/mistral_stream.py`, `backend/scripts/smoke_stream.py`; test `backend/tests/unit/test_mistral_stream.py`.
 
-- [ ] `MistralStreamer(client)` implements `ChatStreamer`. It calls `client.chat.stream_async(model=..., messages=..., tools=..., tool_choice=...)` (omit `tools` and `tool_choice` when `tools` is None), enters the stream as Docstral `chat_streaming` shows, and maps each `event.data.choices[0].delta` with a pure function `to_delta(delta) -> StreamDelta`: text content (join text chunks if content is a list), and each tool call as a `ToolCallFragment` (index from the call, or its position; `arguments` as a string, `json.dumps` when the SDK gives a dict). Use the exact attribute paths recorded in `spikes/2026-10-04-chat-engine/README.md`.
-- [ ] Unit test for `to_delta` with objects shaped like the spike's recorded chunks (text only, a tool call in one chunk, a tool call over two chunks, list content).
+- [ ] `MistralStreamer(client, *, fallback_model, temperature, first_token_timeout_s)` implements `ChatStreamer`. It calls `client.chat.stream_async(model=..., messages=..., tools=..., tool_choice=..., temperature=...)` (omit `tools` and `tool_choice` when `tools` is None; do not pass `reasoning_effort`), enters the stream as Docstral `chat_streaming` shows, and maps each `event.data.choices[0].delta` with a pure function `to_delta(delta) -> StreamDelta`. Format from the chat spike: each tool call arrives whole in one chunk at `delta.tool_calls[i]` with `.id`, `.index`, `.function.name` and `.function.arguments` (a complete JSON string; `json.dumps` it if the SDK ever gives a dict); text is in `delta.content` (a string, or a list of typed chunks when reasoning is on: keep only text chunks, never `thinking`).
+- [ ] Reliability (the spike saw 11 of 40 calls fail with 503 within a minute): before anything has been yielded, an error or no first delta within `first_token_timeout_s` cancels the call, logs `llm_retry`, and tries once more on the same model, then once on `fallback_model` (`llm_fallback`). Once a delta has been yielded, errors propagate to the loop, which turns them into an `error` event.
+- [ ] Unit tests: `to_delta` with objects shaped like the spike's recorded chunks in `spikes/2026-10-04-chat-engine/results/expert_raw_chunks_run2.json` (text only, one tool call, two parallel calls with index 0 and 1, list content with a thinking part); the retry path with a fake client whose first call raises and second succeeds; the fallback path when both calls on the main model fail; a timeout before the first delta counts as a failure.
 - [ ] `scripts/smoke_stream.py` (manual, live): one text turn and one forced `transfer_to_agent` call through `MistralStreamer`, printing time to first delta and the assembled call.
 - [ ] Check: unit test passes; `uv run python scripts/smoke_stream.py` prints a reply and a transfer call.
 
@@ -1223,8 +1312,9 @@ def _score(p: Product, q: SearchQuery) -> int:
 
 **Files:** create `backend/app/profile/extractor.py`, `backend/scripts/smoke_extractor.py`; test `backend/tests/unit/test_extractor.py`.
 
-- [ ] `make_profile_observer(parse, model) -> Observer`, where `parse` is an async callable `(model, messages) -> ProfileUpdate | None` (the real one wraps the structured-output call recorded in `spikes/2026-10-04-chat-engine/README.md`, for example `client.chat.parse_async(..., response_format=ProfileUpdate)`). The observer sends the extractor prompt below plus `Adviser: <previous reply>` and `Visitor: <user text>`, merges the result into `session.profile` with `merge`, sets `session.profile.language = session.language`, and returns one `profile.updated` UiEvent with payload `{"profile": session.profile.model_dump(mode="json")}`. On any error it logs and returns `[]`.
-- [ ] Tests with a fake `parse`: an update merges and produces the event; an exception gives `[]`; `language` follows the session.
+- [ ] Extraction schema, from the chat spike (gotchas 10 and 11): structured output leaves fields with defaults out of `required` and the models then skip them, and the model never sees field descriptions. So `ProfileExtraction` in `extractor.py` declares every field required and nullable, with no defaults: `first_name: str | None`, `skin_type: SkinType | None`, `concerns: list[Concern]` (may be empty), `sensitive: bool | None`, `texture_preference: TexturePreference | None`, `budget_max_eur: float | None`, `routine_size: RoutineSize | None`, `fragrance_free: bool | None`, `hair_type: HairType | None`, `hair_concerns: list[Concern]`. `to_update(extraction) -> ProfileUpdate` derives `budget_band` in code from `budget_max_eur` (up to 20, up to 40, up to 80, above). The system prompt carries the field guide: start from the guide in the spike's `fixtures.py`, which scored 97.7% field accuracy, and add the rule that concerns come only from the visitor's words, never from the adviser's question.
+- [ ] `make_profile_observer(parse, model) -> Observer`, where `parse` is an async callable `(model, messages) -> ProfileExtraction | None` (the real one wraps `client.chat.parse_async(model=..., messages=..., response_format=ProfileExtraction, temperature=0)` as the spike did). The observer sends the extractor prompt plus `Adviser: <previous reply>` and `Visitor: <user text>`, merges `to_update(result)` into `session.profile` with `merge`, sets `session.profile.language = session.language`, and returns one `profile.updated` UiEvent with payload `{"profile": session.profile.model_dump(mode="json")}`. On any error it logs and returns `[]`.
+- [ ] Tests with a fake `parse`: an update merges and produces the event; `budget_max_eur` 30 gives `20_to_40` and 15 gives `under_20`; an exception gives `[]`; `language` follows the session; the JSON schema of `ProfileExtraction` lists every field as required.
 - [ ] Smoke script: the four sample exchanges from the spike through the real call, printing the merged profile.
 - [ ] Check: unit tests pass; the smoke script prints a sensible profile.
 
@@ -1233,8 +1323,9 @@ def _score(p: Product, q: SearchQuery) -> int:
 **Files:** create `backend/app/voice/__init__.py`, `stt.py`, `language.py`, `backend/app/api/__init__.py`, `transcribe.py`, `backend/scripts/smoke_stt.py`; tests `backend/tests/unit/test_language.py`, `test_transcribe_ws.py`.
 
 - [ ] `language.py`: `detect(text, default) -> Language`, a heuristic that scores French and English function words and French accented letters, returning `default` when the text is too short or the scores tie. Tests: "Je cherche une crème pour peau sèche" gives `fr`; "I'm looking for a moisturiser" gives `en`; "OK" gives the default; "Est-ce que ça convient aux peaux sensibles ?" gives `fr`.
-- [ ] `stt.py`: a `Transcriber` protocol with `async def open(self) -> TranscriptionStream`; `TranscriptionStream` has `send(pcm: bytes)`, `end()`, and `events()` yielding `SttDelta(text)` and then `SttDone(text, language | None)`. `MistralTranscriber(client, model, streaming_delay_ms, context_bias)` implements it with `client.audio.realtime.connect(...)`, `send_audio`, `flush_audio` and `end_audio`, mapping events by `event.type` as recorded in `spikes/2026-10-04-realtime-stt/README.md` (delta and done names, language event if any, and how `context_bias` is passed; leave it out if the spike found realtime rejects it). `context_bias` is the brand list from `context/glossary.md` plus product names from the catalogue.
-- [ ] `api/transcribe.py`: `WS /ws/transcribe`, ported from the reference `api.py` endpoint with the same browser messages. In: `{"type": "audio", "audio": "<base64 PCM 16 kHz mono s16le>"}` and `{"type": "end"}`. Out: `{"type": "text_delta", "text": ...}`, then `{"type": "done", "text": ..., "language": ..., "stt_final_ms": ...}`, where `stt_final_ms` runs from receiving `end` to the final text, and language falls back to `detect(text, default="en")`. Errors go out as `{"type": "error", "message": ...}`. Audio stays in memory.
+- [ ] Facts from the realtime STT spike (`spikes/2026-10-04-realtime-stt/README.md`, read its porting gotchas): `voxtral-transcribe-realtime-3` is the model; leave `target_streaming_delay_ms` unset (the default finished 0.20 s after the last chunk), so change `stt_streaming_delay_ms` in `settings.py` to `int | None = None` and pass it only when set; no language event ever arrives (language comes from the text); after `transcription.done` the server drops the socket without a clean close, so use one connection per utterance and stop reading at `done`; an invalid `session.update` gets an `error` event and a 1011 close, which must reach the browser.
+- [ ] `stt.py`: a `Transcriber` protocol with `async def open(self) -> TranscriptionStream`; `TranscriptionStream` has `send(pcm: bytes)`, `end()`, and `events()` yielding `SttDelta(text)` and then `SttDone(text)`. `MistralTranscriber(client, model, streaming_delay_ms, context_bias)` implements it with `client.audio.realtime.connect(...)`, `send_audio` and `end_audio`, mapping events by `event.type` (`transcription.text.delta`, `transcription.done`). `context_bias` cannot go through the SDK in 3.0.0 (`connect` and `update_session` reject or drop it): send it as the raw `session.update` message the spike's `bias_probe.py` uses, right after connecting, and only when the model is realtime-3 (the 2602 mini closes the socket on it). The list holds whole names, never split ("La Roche-Posay", not "La" and "Roche-Posay"): the brands from `context/glossary.md` plus every product name in the catalogue, in both languages.
+- [ ] `api/transcribe.py`: `WS /ws/transcribe`, ported from the reference `api.py` endpoint with the same browser messages. In: `{"type": "audio", "audio": "<base64 PCM 16 kHz mono s16le>"}` and `{"type": "end"}`. Out: `{"type": "text_delta", "text": ...}`, then `{"type": "done", "text": ..., "language": ..., "stt_final_ms": ...}`, where `stt_final_ms` runs from receiving `end` to the final text, and the language is `detect(text, default=<session language, else "en">)` (the browser may pass the session language as a query parameter). Errors go out as `{"type": "error", "message": ...}`. Audio stays in memory.
 - [ ] `test_transcribe_ws.py` with a fake transcriber: two audio frames and `end` give the deltas, then `done` with the language.
 - [ ] `scripts/smoke_stt.py`: synthesise an English and a French test sentence with TTS, stream them at real-time pace through `MistralTranscriber`, print text, language and `stt_final_ms`.
 - [ ] Check: tests pass; the smoke script transcribes both sentences correctly.
@@ -1252,6 +1343,24 @@ Audio format everywhere: raw PCM, float32 little-endian, 24 kHz, mono (`spikes/2
 - [ ] Smoke script: stream one English and one French sentence with each agent's voice, printing time to first chunk and total, and writing WAVs (converted from the PCM) to `/tmp`.
 - [ ] Check: tests pass; the smoke script prints first-chunk times around half a second.
 
+### T24: terminal voice client (first milestone)
+
+Thomas tests the flow, the voices and the timing in a terminal before any browser work.
+
+**Files:** create `backend/scripts/talk.py` and `backend/scripts/_audio.py`. `numpy` and `sounddevice` are in the dev group (T1). Needs T7, T8, T10 to T14; until T20 lands it runs on the fixture catalogue with `--catalogue tests/fixtures/catalogue_fixture.json`.
+
+- [ ] `_audio.py`: `Mic` (a sounddevice input stream at 16 kHz mono int16 in 20 ms blocks, feeding an asyncio queue, with `pause()` and `resume()`); `Speaker` (an output stream at 24 kHz mono float32 that plays chunks as they arrive, reports when the first chunk of a turn starts, and tells when it has drained); `Vad` (end of speech after 600 ms of frames under an RMS threshold, with the threshold printed at start so it can be tuned).
+- [ ] `talk.py`, run as `cd backend && uv run python scripts/talk.py [--mode ptt|auto|text] [--lang en|fr] [--catalogue PATH]`:
+  1. Builds the real pieces in-process with one `Mistral` client: catalogue, tools, agents, `MistralStreamer`, `MistralTranscriber`, `MistralSynthesizer`, a warmed `LineCache`, the profile observer, and one session.
+  2. Plays the concierge's `welcome` line.
+  3. Each turn captures speech: in `ptt` mode, Enter starts and Enter stops; in `auto` mode, the `Vad` decides; in `text` mode, the visitor types the line instead. Audio streams to the transcriber as it is captured, the partial transcript rewrites one terminal line live, and the final text and its language print when the transcriber is done.
+  4. Runs `run_turn` with the final text and language. It prints events compactly: agent switches, tool calls with their arguments, product names shown, basket total, profile fields. The reply text streams to the terminal under the active agent's display name.
+  5. Speech follows the browser rules. At each sentence end (`.`, `!` or `?` followed by a space or the end of the text, minimum 20 characters), that sentence's TTS stream starts at once in the active agent's voice and the session language. Sentences play strictly in order, and `line.play` lines play at once from the `LineCache`.
+  6. The mic stays paused while audio plays (half duplex; headphones recommended).
+  7. After each turn it prints one timings line, in ms from end of speech: `stt_final`, `first_token`, `first_sentence`, `first_audio` (and whether that audio was a fixed line), plus the voices that spoke.
+  8. Ctrl+C ends the session and closes the client cleanly.
+- [ ] Check (Thomas, manual): run the golden path in `ptt` mode. The concierge's welcome, the handover line in the concierge's voice and the skincare expert's own voice are all audible. One French sentence gets a French reply. A timings line prints after every turn. Paste two timings lines into `tasks.md`.
+
 ### T15: API wiring
 
 **Files:** create `backend/app/services.py`, `backend/app/api/sessions.py`, `conversation.py`, `meta.py`; modify `backend/app/main.py`; test `backend/tests/unit/test_api.py`.
@@ -1260,7 +1369,10 @@ Audio format everywhere: raw PCM, float32 little-endian, 24 kHz, mono (`spikes/2
 - [ ] `main.py`: `create_app(services: Services | None = None)`. With services given (tests), the lifespan stores them on `app.state.services`. Otherwise it opens `async with Mistral(api_key=settings.mistral_api_key) as client:`, builds the services, awaits `lines.warm(agents)`, and yields. Include the routers from T13, T14 and this task.
 - [ ] `api/sessions.py`: `POST /sessions` with `{"language": "en"}` answers `{"session_id", "agent": "concierge", "language", "welcome_line": "welcome"}`. `DELETE /sessions/{id}` answers 204, or 404 for an unknown id.
 - [ ] `api/conversation.py`: `POST /conversation/stream` takes `{session_id, text (1 to 1000 characters), language?}`. It answers 404 for an unknown session. Under `session.lock` it sets the session and profile language when given, runs `run_turn` with the services' agents, streamer and observers, and streams `to_sse(event)` with `media_type="text/event-stream"` and headers `Cache-Control: no-cache` and `X-Accel-Buffering: no`. At `turn.done` it logs `turn_done` with the session, turn id, agents, user text, reply text and backend timings, and keeps the timings in `turn_timings`.
-- [ ] `api/meta.py`: `GET /config` answers the agents (id, display names, role labels, line ids), the languages and the first agent. `POST /turns/{turn_id}/timings` takes the browser timings, all in milliseconds from end of speech: `mode`, `stt_final`, `request_sent`, `first_delta`, `first_sentence`, `first_audio`, `first_audio_kind`. It logs one `turn_timings` line holding both sides and answers 204. `/health` stays.
+- [ ] `api/meta.py`, with shapes that match `frontend/src/lib/api.ts` (T16) exactly:
+  - `GET /config` answers `{"agents": [{"id", "display_name": {"en", "fr"}, "role_label": {"en", "fr"}, "lines": [line ids]}], "languages": ["en", "fr"], "first_agent": "concierge"}`.
+  - `POST /turns/{turn_id}/timings` takes `{"session_id", "mode": "auto" | "push_to_talk", "stt_final", "request_sent", "first_delta", "first_sentence", "first_audio", "first_audio_kind": "line" | "speech" | null}`, the numbers in milliseconds from end of speech and nullable. It logs one `turn_timings` line holding both sides and answers 204.
+  - `/health` stays.
 - [ ] Tests with fake services (fixture catalogue, `ScriptedStreamer`, fake synthesizer, fake transcriber): create a session, stream a turn and parse the SSE frames with `EVENT_ADAPTER` (first `turn.started`, last `turn.done`), end the session, get 404 on a second end, get 404 when streaming to an unknown session, see `/config` list both agents, get 204 when posting timings.
 - [ ] Check: `uv run pytest -q` passes; `uv run uvicorn app.main:app --port 8000` starts with the real key and `/health` answers.
 
@@ -1282,8 +1394,8 @@ Audio format everywhere: raw PCM, float32 little-endian, 24 kHz, mono (`spikes/2
 - [ ] Port the reference `frontend/src/hooks/useVoiceAgent.ts` (path under the read-only export), then adapt:
   1. Session: `start()` creates a session, loads `/config`, prefetches every fixed line of every agent in both languages, and plays `welcome`.
   2. Listening: keep the reference capture (16 kHz mono PCM over `/ws/transcribe`). Expose the live partial text on every `text_delta`, and replace it with the final text on `done`.
-  3. End of speech: `mode: "auto" | "push_to_talk"`. Auto keeps the reference silence detection and records `speechEnd` at the last voiced frame. Push-to-talk captures from `pttDown()` to `pttUp()`, with the space bar bound by the page, and records `speechEnd` at release.
-  4. Turn: POST `/conversation/stream` with the session id, final text and STT language, and parse frames with the reference SSE reader into `StreamEvent`s.
+  3. End of speech: `mode: "auto" | "push_to_talk"`. Auto keeps the reference silence detection with its wait cut from 1.5 s to 700 ms (the STT spike measured the final transcript 0.2 s after `end`, so the old wait was most of the delay), and records `speechEnd` at the last voiced frame. Push-to-talk captures from `pttDown()` to `pttUp()`, with the space bar bound by the page, and records `speechEnd` at release.
+  4. Turn: `streamConversation({session_id, text, language}, signal)` from `api.ts`, then parse the body with the reference SSE reader, swapping its `JSON.parse` for `parseEvent` and keeping its per-event `catch`. Attach a `.catch` to every `speak()` promise as soon as it is queued (an unhandled rejection trips the Next.js dev overlay), and pass one `AbortController` signal through so `end()` and a reset cancel every pending request. An aborted request rejects with `AbortError`: treat it as the normal result of `clear()` or `end()`, separately from `ApiError`, and keep it out of the event log.
   5. Events: `text.delta` feeds the agent's message and the sentence splitter (reference rule), and each sentence goes to the player as a `/voice/speak` stream whose request starts at once. `line.play` hands the prefetched line to `playNow`. `agent.switched` updates the active agent. `products.shown`, `basket.updated` and `profile.updated` update state. `turn.done` closes the turn. `error` shows in the log.
   6. The mic stays muted while audio plays, and auto mode starts listening again when the queue drains.
   7. Timings per turn, in milliseconds from `speechEnd`: `stt_final`, `request_sent`, `first_delta`, `first_sentence`, `first_audio` and `first_audio_kind` (`line` or `speech`). Post them once first audio has played and `turn.done` has arrived.
@@ -1314,7 +1426,7 @@ Audio format everywhere: raw PCM, float32 little-endian, 24 kHz, mono (`spikes/2
 
 **Files:** create `backend/app/catalogue/data/products.json`.
 
-- [ ] One subagent per brand group (L'Oréal Paris with Garnier; La Roche-Posay with CeraVe and Vichy; Lancôme with Kiehl's; haircare) fetches the French and UK pages of its approved products. For each product it copies two to four approved claims and one or two usage notes per language word for word, with `source_url` and `copied_on: 2026-10-04`, plus the euro price and its source. It fills every schema field from the pages and sets `fragrance_free` only when a page says so. It writes its products to a scratch file under `/tmp`.
+- [ ] One subagent per brand (L'Oréal Paris including Elseve; CeraVe, plus La Roche-Posay if the perimeter keeps it) fetches the French and UK pages of its approved products. For each product it copies two to four approved claims and one or two usage notes per language word for word, with `source_url` and `copied_on: 2026-10-04`, plus the euro price and its source. It fills every schema field from the pages and sets `fragrance_free` only when a page says so. It writes its products to a scratch file under `/tmp`.
 - [ ] One integrator merges them into `products.json`, sets `pairs_with` following `perimeter.md`, and removes the `skipif` from `test_real_catalogue`.
 - [ ] Thomas spot-checks five claims against their pages.
 - [ ] Check: `uv run pytest tests/unit/test_catalogue.py -q` passes with `test_real_catalogue` running.
@@ -1441,10 +1553,13 @@ Claims and safety
 
 ### Extractor prompt (T12)
 
+Start from the field guide in `spikes/2026-10-04-chat-engine/fixtures.py`, which scored 97.7% field accuracy with `mistral-small-latest`, and make sure it states:
+
 ```
 You extract a beauty profile from one exchange between a skincare adviser and a visitor.
-Fill only what the visitor's words state or clearly imply, and leave everything else empty.
-budget_band is for one product, in euros: under_20, 20_to_40, 40_to_80, over_80.
+Fill only what the visitor's own words state or clearly imply; the adviser's question is
+context, never a source. Everything else is null, or an empty list.
+budget_max_eur: the most the visitor wants to spend on one product, in euros.
 routine_size: minimal (one to three products), standard (four or five), full (six or more).
 texture_preference: rich or light. The visitor may speak English or French.
 ```

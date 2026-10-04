@@ -89,7 +89,11 @@ fi
 if git check-ignore -q .env 2>/dev/null; then ok ".env is gitignored"; else bad ".env is not gitignored"; fi
 
 if [ -d backend ] || [ -d frontend ]; then
-  if grep -rqsE "(from|import)[[:space:]]+['\"]?([.]{1,2}/)*spikes" backend frontend/src 2>/dev/null; then
+  # real import statements only: Python `from spikes...`/`import spikes...` at line start,
+  # TypeScript `from "../spikes..."`; prose that mentions spikes/ does not count
+  if grep -rqsE --exclude-dir=.venv --exclude-dir=node_modules --exclude-dir=__pycache__ \
+    "^[[:space:]]*(from|import)[[:space:]]+spikes|from[[:space:]]+['\"]([.]{1,2}/)+spikes" \
+    backend frontend/src 2>/dev/null; then
     bad "app code imports from spikes/"
   else
     ok "app code stays independent of spikes/"
@@ -117,7 +121,8 @@ if [ -f frontend/package.json ]; then
     bad "frontend/node_modules missing (run npm install in frontend/)"
   else
     run "eslint" bash -c 'cd frontend && npm run --silent lint'
-    run "tsc --noEmit" bash -c 'cd frontend && npx --no-install tsc --noEmit'
+    # next typegen writes the route types (LayoutProps and friends) that tsc needs before any build
+    run "tsc --noEmit" bash -c 'cd frontend && npx --no-install next typegen >/dev/null && npx --no-install tsc --noEmit'
     if ! $quick; then
       run "next build" bash -c 'cd frontend && npm run --silent build'
     fi

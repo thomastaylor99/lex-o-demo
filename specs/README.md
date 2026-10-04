@@ -25,8 +25,8 @@ From `000-architecture`: 001 voice core, 002 discovery, 003 journey and UI, 004 
 
 | Version | What the visitor gets | Specs | Target |
 |---|---|---|---|
-| V0 | The skincare journey by voice, end to end, in a bare debug page with timings | 001, 002 | 2026-10-04 |
-| V1 | Designed screens, a haircare expert (a third specialist if time allows), presenter controls | 003, 005, 002 extended | 2026-10-05 at the latest |
+| V0 | The skincare journey by voice, end to end, in the terminal (`backend/scripts/talk.py`) | 001, 002 | done 2026-10-04 |
+| V1 | The designed screen in the browser (spec 003), then a haircare expert and presenter controls | 003, 005, 002 extended | 2026-10-05 at the latest |
 | V2 | Richer screens and interaction, camera behind a switch | 003, 004 | Night of 2026-10-05, if possible |
 
 2026-10-06 is kept for adjustments and the 15:30 dry run.

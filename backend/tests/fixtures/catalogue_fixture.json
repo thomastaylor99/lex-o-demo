@@ -1,0 +1,298 @@
+{
+  "products": [
+    {
+      "id": "fx-rich-dry",
+      "brand": "Fixture Brand A",
+      "division": "dermatological_beauty",
+      "name": { "en": "Fixture Rich Cream", "fr": "Crème Riche Fixture" },
+      "url": {
+        "en": "https://example.com/fx-rich-dry/en",
+        "fr": "https://example.com/fx-rich-dry/fr"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": ["dry", "normal"],
+      "concerns": ["hydration", "sensitivity"],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "rich_cream",
+      "size_ml": 50,
+      "price_eur": 24.90,
+      "price_source_url": "https://example.com/fx-rich-dry/price",
+      "approved_claims": [
+        {
+          "id": "fx-rich-dry-claim-en",
+          "lang": "en",
+          "text": "Fixture claim: hydrates fixture skin for 24 hours.",
+          "source_url": "https://example.com/fx-rich-dry/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-rich-dry-claim-fr",
+          "lang": "fr",
+          "text": "Allégation fixture : hydrate la peau fixture pendant 24 heures.",
+          "source_url": "https://example.com/fx-rich-dry/fr",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "fx-rich-dry-note-en",
+          "lang": "en",
+          "text": "Fixture note: apply morning and evening on fixture skin.",
+          "source_url": "https://example.com/fx-rich-dry/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-rich-dry-note-fr",
+          "lang": "fr",
+          "text": "Note fixture : appliquer matin et soir sur peau fixture.",
+          "source_url": "https://example.com/fx-rich-dry/fr",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "pairs_with": ["fx-cleanser"]
+    },
+    {
+      "id": "fx-light-dry",
+      "brand": "Fixture Brand A",
+      "division": "consumer_products",
+      "name": { "en": "Fixture Light Cream", "fr": "Crème Légère Fixture" },
+      "url": {
+        "en": "https://example.com/fx-light-dry/en",
+        "fr": "https://example.com/fx-light-dry/fr"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": ["dry", "normal"],
+      "concerns": ["hydration"],
+      "suitable_for_sensitive": false,
+      "fragrance_free": false,
+      "texture": "light_cream",
+      "spf": 30,
+      "size_ml": 50,
+      "price_eur": 32.00,
+      "price_source_url": "https://example.com/fx-light-dry/price",
+      "approved_claims": [
+        {
+          "id": "fx-light-dry-claim-en",
+          "lang": "en",
+          "text": "Fixture claim: lightweight hydration for fixture skin.",
+          "source_url": "https://example.com/fx-light-dry/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-light-dry-claim-fr",
+          "lang": "fr",
+          "text": "Allégation fixture : hydratation légère pour peau fixture.",
+          "source_url": "https://example.com/fx-light-dry/fr",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "fx-light-dry-note-en",
+          "lang": "en",
+          "text": "Fixture note: smooth onto fixture skin each morning.",
+          "source_url": "https://example.com/fx-light-dry/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-light-dry-note-fr",
+          "lang": "fr",
+          "text": "Note fixture : lisser sur la peau fixture chaque matin.",
+          "source_url": "https://example.com/fx-light-dry/fr",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "fx-gel-oily",
+      "brand": "Fixture Brand B",
+      "division": "consumer_products",
+      "name": { "en": "Fixture Gel Cream", "fr": "Gel-Crème Fixture" },
+      "url": {
+        "en": "https://example.com/fx-gel-oily/en",
+        "fr": "https://example.com/fx-gel-oily/fr"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": ["oily", "combination"],
+      "concerns": ["blemish_prone", "hydration"],
+      "suitable_for_sensitive": true,
+      "texture": "gel_cream",
+      "size_ml": 50,
+      "price_eur": 12.50,
+      "price_source_url": "https://example.com/fx-gel-oily/price",
+      "approved_claims": [
+        {
+          "id": "fx-gel-oily-claim-en",
+          "lang": "en",
+          "text": "Fixture claim: mattifies fixture skin without clogging pores.",
+          "source_url": "https://example.com/fx-gel-oily/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-gel-oily-claim-fr",
+          "lang": "fr",
+          "text": "Allégation fixture : matifie la peau fixture sans obstruer les pores.",
+          "source_url": "https://example.com/fx-gel-oily/fr",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "fx-gel-oily-note-en",
+          "lang": "en",
+          "text": "Fixture note: apply to clean fixture skin each evening.",
+          "source_url": "https://example.com/fx-gel-oily/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-gel-oily-note-fr",
+          "lang": "fr",
+          "text": "Note fixture : appliquer sur peau fixture propre chaque soir.",
+          "source_url": "https://example.com/fx-gel-oily/fr",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "fx-luxe-firm",
+      "brand": "Fixture Brand C",
+      "division": "luxe",
+      "name": { "en": "Fixture Luxe Cream", "fr": "Crème Luxe Fixture" },
+      "url": {
+        "en": "https://example.com/fx-luxe-firm/en",
+        "fr": "https://example.com/fx-luxe-firm/fr"
+      },
+      "category": "moisturiser",
+      "routine_step": "moisturise",
+      "skin_types": ["dry", "normal"],
+      "concerns": ["firmness_wrinkles"],
+      "texture": "rich_cream",
+      "size_ml": 50,
+      "price_eur": 95.00,
+      "price_source_url": "https://example.com/fx-luxe-firm/price",
+      "approved_claims": [
+        {
+          "id": "fx-luxe-firm-claim-en",
+          "lang": "en",
+          "text": "Fixture claim: firms fixture skin in four weeks.",
+          "source_url": "https://example.com/fx-luxe-firm/en",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "fx-luxe-firm-note-en",
+          "lang": "en",
+          "text": "Fixture note: massage into fixture skin each evening.",
+          "source_url": "https://example.com/fx-luxe-firm/en",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "fx-cleanser",
+      "brand": "Fixture Brand A",
+      "division": "dermatological_beauty",
+      "name": { "en": "Fixture Gel Cleanser", "fr": "Gel Nettoyant Fixture" },
+      "url": {
+        "en": "https://example.com/fx-cleanser/en",
+        "fr": "https://example.com/fx-cleanser/fr"
+      },
+      "category": "cleanser",
+      "routine_step": "cleanse",
+      "skin_types": ["dry", "normal"],
+      "concerns": ["sensitivity"],
+      "suitable_for_sensitive": true,
+      "fragrance_free": true,
+      "texture": "gel",
+      "size_ml": 150,
+      "price_eur": 11.90,
+      "price_source_url": "https://example.com/fx-cleanser/price",
+      "approved_claims": [
+        {
+          "id": "fx-cleanser-claim-en",
+          "lang": "en",
+          "text": "Fixture claim: cleanses fixture skin without stripping it.",
+          "source_url": "https://example.com/fx-cleanser/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-cleanser-claim-fr",
+          "lang": "fr",
+          "text": "Allégation fixture : nettoie la peau fixture sans l'agresser.",
+          "source_url": "https://example.com/fx-cleanser/fr",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "fx-cleanser-note-en",
+          "lang": "en",
+          "text": "Fixture note: lather on damp fixture skin and rinse.",
+          "source_url": "https://example.com/fx-cleanser/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-cleanser-note-fr",
+          "lang": "fr",
+          "text": "Note fixture : faire mousser sur peau fixture humide et rincer.",
+          "source_url": "https://example.com/fx-cleanser/fr",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    },
+    {
+      "id": "fx-hair-dry",
+      "brand": "Fixture Brand B",
+      "division": "professional_products",
+      "name": { "en": "Fixture Hair Mask", "fr": "Masque Capillaire Fixture" },
+      "url": {
+        "en": "https://example.com/fx-hair-dry/en",
+        "fr": "https://example.com/fx-hair-dry/fr"
+      },
+      "category": "haircare",
+      "routine_step": "hair",
+      "concerns": ["dry_hair", "frizz"],
+      "texture": "mask",
+      "size_ml": 200,
+      "price_eur": 18.00,
+      "price_source_url": "https://example.com/fx-hair-dry/price",
+      "approved_claims": [
+        {
+          "id": "fx-hair-dry-claim-en",
+          "lang": "en",
+          "text": "Fixture claim: tames frizz on fixture hair for 48 hours.",
+          "source_url": "https://example.com/fx-hair-dry/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-hair-dry-claim-fr",
+          "lang": "fr",
+          "text": "Allégation fixture : dompte les frisottis des cheveux fixture pendant 48 heures.",
+          "source_url": "https://example.com/fx-hair-dry/fr",
+          "copied_on": "2026-10-04"
+        }
+      ],
+      "usage_notes": [
+        {
+          "id": "fx-hair-dry-note-en",
+          "lang": "en",
+          "text": "Fixture note: leave on fixture hair for five minutes then rinse.",
+          "source_url": "https://example.com/fx-hair-dry/en",
+          "copied_on": "2026-10-04"
+        },
+        {
+          "id": "fx-hair-dry-note-fr",
+          "lang": "fr",
+          "text": "Note fixture : laisser poser sur cheveux fixture cinq minutes puis rincer.",
+          "source_url": "https://example.com/fx-hair-dry/fr",
+          "copied_on": "2026-10-04"
+        }
+      ]
+    }
+  ]
+}

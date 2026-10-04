@@ -11,7 +11,7 @@ The skincare journey of the demo. A beauty concierge hands the visitor to a skin
 - Golden conversations pass (marker `golden`, live API): the English golden path, an English to French switch, the eczema question, the retinol question, a competitor brand.
 - In every golden conversation, a judge model finds that each sentence stating a product benefit matches an approved claim, in the session language, of a product returned in that conversation.
 - The golden path ends with a basket of at least three products from at least two divisions, and a profile holding skin type, concern, sensitivity, texture, budget band, hair concern and consent.
-- Catalogue validation passes: about 20 products, each with at least one approved claim and one usage note in English and in French, every claim with its source URL and date, a price with its source, pairings that point to existing products.
+- Catalogue validation passes: about 12 products, each with at least one approved claim and one usage note in English and in French, every claim with its source URL and date, a price with its source, pairings that point to existing products.
 
 ## Scope
 
@@ -71,11 +71,11 @@ Ranking is plain code: points for skin type, each matching concern, texture and 
 
 Fields, all optional until filled: `language`, `first_name`, `skin_type`, `concerns`, `sensitive`, `texture_preference`, `budget_band` (`under_20`, `20_to_40`, `40_to_80`, `over_80`), `routine_size` (`minimal`, `standard`, `full`), `fragrance_free`, `hair_type`, `hair_concerns`, `consent` (`pending`, `given`, `declined`). Basket items come only from `add_to_basket`.
 
-The extractor runs after each final transcript, beside the turn: `ministral-8b-latest` with structured output reads the last agent message and the visitor's reply, returns only what the words support, and the result merges into the session profile. `profile.updated` goes out before `turn.done`. The profile lives in memory and disappears with the session or on a "no" at the close.
+The extractor runs after each final transcript, beside the turn: `mistral-small-latest` with structured output (every field required and nullable, the field guide in its prompt, budget read in euros and banded in code) reads the last agent message and the visitor's reply, returns only what the visitor's words support, and the result merges into the session profile. `profile.updated` goes out before `turn.done`. The profile lives in memory and disappears with the session or on a "no" at the close.
 
 ## Perimeter
 
-About 20 products: 12 face moisturisers across L'Oréal Paris and Garnier (Consumer Products), La Roche-Posay, CeraVe and Vichy (Dermatological Beauty), Lancôme and Kiehl's (Luxe); 6 routine products (cleansers, serums, sunscreen); 2 or 3 haircare products. Coverage: dry, normal, combination and oily skin; hydration, sensitivity, first signs of ageing, firmness, radiance, blemish-prone; rich, light and gel textures; prices from under 15 € to over 80 €. A research subagent drafts the shortlist into `specs/002-discovery/perimeter.md`; Thomas approves it before claims are copied from public brand pages only (NDA unsigned as of 2026-10-03).
+Thomas narrowed it on 2026-10-04 to two or three brands, about 12 products: L'Oréal Paris (Consumer Products: three face moisturisers, one serum, two Elseve haircare products for the cross-sell), CeraVe (Dermatological Beauty: three face moisturisers including one with SPF, two cleansers), and La Roche-Posay only where a product clearly needs it, such as a sunscreen (two at most). Coverage: dry, normal, combination and oily skin; hydration, sensitivity, first signs of ageing, radiance; rich and light textures; at least one day cream with SPF; at least two fragrance-free products. A research subagent drafts the shortlist into `specs/002-discovery/perimeter.md`; Thomas approves it before claims are copied from public brand pages only (NDA unsigned as of 2026-10-03).
 
 ## Golden conversations
 

@@ -29,3 +29,7 @@ node_modules/
 
 # macOS
 .DS_Store
+
+# Spike raw measurements stay local; READMEs and scripts are the record
+spikes/*/results/
+spikes/*/latency_results.json
