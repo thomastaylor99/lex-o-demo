@@ -1,21 +1,10 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Jost } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 
-// A high-contrast Didone for headings and the agent's words, a geometric sans for the rest:
-// the classic fashion-editorial pairing.
-const bodoni = Bodoni_Moda({
-  variable: "--font-bodoni",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  axes: ["opsz"],
-});
-
-const jost = Jost({
-  variable: "--font-jost",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-});
+// Geist is the live skin's typeface, read through --font-frost (src/skins/frost/theme.ts).
+// The /templates pages load their own fonts.
+const geist = Geist({ subsets: ["latin"], variable: "--font-frost" });
 
 export const metadata: Metadata = {
   title: "Beauty voice advisor",
@@ -24,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${bodoni.variable} ${jost.variable} h-full antialiased`}>
+    <html lang="en" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full">{children}</body>
     </html>
   );

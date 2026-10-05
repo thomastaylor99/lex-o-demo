@@ -1,7 +1,7 @@
 /**
  * One spoken turn over `/ws/transcribe` (backend/app/api/transcribe.py): mic frames in, live
  * transcript deltas out, then the final text with its language. One socket per utterance; the
- * server closes it after `done`.
+ * server closes it after `done`. The session id makes the audio count in that session's cost.
  */
 
 import { transcribeUrl } from "@/lib/api";
@@ -20,8 +20,8 @@ export class Utterance {
   private ended = false;
   private finished = false;
 
-  constructor(language: Language, private readonly handlers: UtteranceHandlers) {
-    this.socket = new WebSocket(`${transcribeUrl()}?language=${language}`);
+  constructor(language: Language, sessionId: string | null, private readonly handlers: UtteranceHandlers) {
+    this.socket = new WebSocket(transcribeUrl(language, sessionId));
     this.socket.onopen = () => {
       this.pending.forEach((message) => this.socket.send(message));
       this.pending = [];

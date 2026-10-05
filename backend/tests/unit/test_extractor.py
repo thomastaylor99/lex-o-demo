@@ -5,15 +5,14 @@ from collections.abc import Awaitable, Callable
 import pytest
 
 from app.catalogue.models import Concern, SkinType, TexturePreference
-from app.conversation.agent import UiEvent
 from app.conversation.session import Session
 from app.lang import Language
-from app.profile.extractor import ProfileExtraction, make_profile_observer, to_update
+from app.profile.extractor import Parsed, ProfileExtraction, make_profile_observer, to_update
 from app.profile.models import BudgetBand, HairType, RoutineSize
 
 MODEL = "mistral-small-latest"
 
-Parse = Callable[[str, list[dict[str, str]]], Awaitable[ProfileExtraction | None]]
+Parse = Callable[[str, list[dict[str, str]]], Awaitable[Parsed]]
 
 
 def _session(language: Language = "en") -> Session:
@@ -38,8 +37,8 @@ def _empty_extraction(**overrides: object) -> ProfileExtraction:
 
 
 def _parse_returning(result: ProfileExtraction | None) -> Parse:
-    async def parse(model: str, messages: list[dict[str, str]]) -> ProfileExtraction | None:
-        return result
+    async def parse(model: str, messages: list[dict[str, str]]) -> Parsed:
+        return Parsed(extraction=result)
 
     return parse
 
@@ -72,12 +71,9 @@ async def test_observer_merges_extraction_into_profile_and_emits_one_event():
     assert session.profile.fragrance_free is True
     assert session.profile.hair_type == HairType.CURLY
     assert session.profile.hair_concerns == [Concern.FRIZZ]
-    assert events == [
-        UiEvent(
-            type="profile.updated",
-            payload={"profile": session.profile.model_dump(mode="json")},
-        )
-    ]
+    expected = {"profile": session.profile.model_dump(mode="json")}
+    assert [(e.type, e.payload) for e in events] == [("profile.updated", expected)]
+    assert events[0].latest is not None and events[0].latest() == expected
 
 
 @pytest.mark.parametrize(
@@ -104,7 +100,7 @@ def test_to_update_leaves_budget_band_null_when_not_stated():
 
 
 async def test_observer_returns_empty_list_and_leaves_profile_on_exception():
-    async def raising_parse(model: str, messages: list[dict[str, str]]) -> ProfileExtraction | None:
+    async def raising_parse(model: str, messages: list[dict[str, str]]) -> Parsed:
         raise RuntimeError("boom")
 
     session = _session()
@@ -138,12 +134,10 @@ async def test_observer_profile_language_follows_session():
 async def test_observer_sends_visitor_text_and_none_placeholder_for_missing_reply():
     captured: dict[str, object] = {}
 
-    async def capturing_parse(
-        model: str, messages: list[dict[str, str]]
-    ) -> ProfileExtraction | None:
+    async def capturing_parse(model: str, messages: list[dict[str, str]]) -> Parsed:
         captured["model"] = model
         captured["messages"] = messages
-        return _empty_extraction()
+        return Parsed(extraction=_empty_extraction())
 
     session = _session()
     observer = make_profile_observer(capturing_parse, MODEL)
@@ -162,11 +156,9 @@ async def test_observer_sends_visitor_text_and_none_placeholder_for_missing_repl
 async def test_observer_sends_previous_reply_when_present():
     captured: dict[str, object] = {}
 
-    async def capturing_parse(
-        model: str, messages: list[dict[str, str]]
-    ) -> ProfileExtraction | None:
+    async def capturing_parse(model: str, messages: list[dict[str, str]]) -> Parsed:
         captured["messages"] = messages
-        return _empty_extraction()
+        return Parsed(extraction=_empty_extraction())
 
     session = _session()
     observer = make_profile_observer(capturing_parse, MODEL)

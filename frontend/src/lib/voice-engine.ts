@@ -12,6 +12,7 @@ import {
   endSession,
   fetchLine,
   getConfig,
+  getUsage,
   postTimings,
   speak,
   streamConversation,
@@ -71,7 +72,7 @@ export function initialSnapshot(mode: MicMode = "auto"): Snapshot {
     profile: null,
     lastReplyMs: null,
     replyStats: EMPTY_REPLY_STATS,
-    // Usage is not reported by the backend yet; the templates show the mock's figures meanwhile.
+    // The session's running cost: turn.done carries it, GET /sessions/{id}/usage tops it up.
     costEur: 0,
     error: null,
   };
@@ -90,7 +91,10 @@ export class VoiceEngine {
   private readonly lines = new Map<string, ArrayBuffer>();
 
   // listening
-  private utterance: Utterance | null = null;
+  private utterance: Utterance | null = null; // recording
+  private transcribing: Utterance | null = null; // ended, waiting for its final text
+  /** Bumped whenever an utterance is dropped or settled, so its late callbacks are ignored. */
+  private utteranceGen = 0;
   private visitorEntryId: string | null = null;
   private holding = false;
   private voicedRun = 0;
@@ -151,6 +155,7 @@ export class VoiceEngine {
   async end(): Promise<void> {
     this.controller.abort();
     this.stopListening();
+    this.settleUtterance(); // its STT timer would otherwise remove the next visitor's line
     this.mic?.close();
     this.mic = null;
     this.player.clear();
@@ -212,24 +217,43 @@ export class VoiceEngine {
 
   private beginUtterance(now: number): void {
     this.utteranceStartedAt = now;
+    const gen = ++this.utteranceGen;
+    const current = () => gen === this.utteranceGen;
     const id = this.nextId();
     this.visitorEntryId = id;
     let text = "";
-    this.utterance = new Utterance(this.snap.language, {
+    this.utterance = new Utterance(this.snap.language, this.sessionId, {
       onDelta: (delta) => {
+        if (!current()) return;
         text += delta;
         this.upsertEntry({ id, kind: "visitor", agent: null, text: text.trim(), final: false });
       },
-      onDone: (finalText, language) => this.onTranscribed(id, finalText, language),
-      onError: (error) => this.onListeningFailed(id, error),
+      onDone: (finalText, language) => {
+        if (current()) this.onTranscribed(id, finalText, language);
+      },
+      onError: (error) => {
+        if (current()) this.onListeningFailed(id, error);
+      },
     });
-    this.update({ activity: "listening" });
+    this.update({ activity: "listening", error: null });
   }
 
   private finishUtterance(speechEnd: number): void {
     const utterance = this.utterance;
     if (!utterance) return;
     this.utterance = null;
+    this.transcribing = utterance;
+    this.openTurn(speechEnd);
+    utterance.end();
+    const gen = this.utteranceGen;
+    const entryId = this.visitorEntryId;
+    this.sttTimer = setTimeout(() => {
+      if (gen === this.utteranceGen && entryId) this.onListeningFailed(entryId, "no transcript received");
+    }, STT_TIMEOUT_MS);
+  }
+
+  /** The visitor has finished speaking: the turn starts its clock and the mic is ignored. */
+  private openTurn(speechEnd: number): void {
     this.busy = true;
     this.turn = {
       id: null,
@@ -243,49 +267,61 @@ export class VoiceEngine {
       done: false,
       posted: false,
     };
-    utterance.end();
-    this.sttTimer = setTimeout(() => {
-      utterance.close();
-      if (this.visitorEntryId) this.onListeningFailed(this.visitorEntryId, "no transcript received");
-    }, STT_TIMEOUT_MS);
     this.update({ activity: "thinking" });
   }
 
   private onTranscribed(entryId: string, text: string, language: Language): void {
-    if (this.sttTimer) clearTimeout(this.sttTimer);
-    this.sttTimer = null;
-    this.visitorEntryId = null;
+    if (this.utterance) {
+      // The server ended the utterance before the visitor did: answer what it heard.
+      this.transcribing = this.utterance;
+      this.utterance = null;
+      this.openTurn(performance.now());
+    }
+    this.settleUtterance();
     const turn = this.turn;
-    if (!turn || !this.busy) return;
-    if (!text.trim()) {
+    const said = text.trim();
+    if (!turn || !said) {
       this.removeEntry(entryId);
       this.becomeReady();
       return;
     }
     turn.sttFinal = performance.now();
-    this.upsertEntry({ id: entryId, kind: "visitor", agent: null, text: text.trim(), final: true });
+    this.upsertEntry({ id: entryId, kind: "visitor", agent: null, text: said, final: true });
     if (language !== this.snap.language) {
       this.snap = { ...this.snap, language };
       this.update({ agents: this.identities(), activeAgent: this.identity(this.currentAgent) });
     }
-    void this.runTurn(turn, text.trim(), language);
+    void this.runTurn(turn, said, language);
   }
 
   private onListeningFailed(entryId: string, error: string): void {
-    if (this.sttTimer) clearTimeout(this.sttTimer);
-    this.sttTimer = null;
-    this.visitorEntryId = null;
+    this.utterance?.close();
     this.utterance = null;
+    this.settleUtterance();
     this.removeEntry(entryId);
     this.update({ error: `Speech recognition: ${error}` });
     this.becomeReady();
   }
 
-  private stopListening(): void {
-    this.utterance?.close();
-    this.utterance = null;
-    if (this.visitorEntryId) this.removeEntry(this.visitorEntryId);
+  /** The utterance in flight is over: stop its timer, close its socket, ignore what it still sends. */
+  private settleUtterance(): void {
+    this.utteranceGen++;
+    if (this.sttTimer) clearTimeout(this.sttTimer);
+    this.sttTimer = null;
+    this.transcribing?.close();
+    this.transcribing = null;
     this.visitorEntryId = null;
+  }
+
+  /** Stop recording and drop the unfinished line; an utterance waiting for its final text carries on. */
+  private stopListening(): void {
+    if (this.utterance) {
+      this.utteranceGen++;
+      this.utterance.close();
+      this.utterance = null;
+      if (this.visitorEntryId) this.removeEntry(this.visitorEntryId);
+      this.visitorEntryId = null;
+    }
     this.holding = false;
     this.voicedRun = 0;
     this.preRoll = [];
@@ -334,6 +370,7 @@ export class VoiceEngine {
     this.postTimings(turn);
     this.player.whenDrained(() => {
       if (this.turn === turn) this.becomeReady();
+      void this.refreshCost(sessionId); // the turn's speech requests have all started by now
     });
   }
 
@@ -396,6 +433,7 @@ export class VoiceEngine {
         break;
       case "turn.done":
         this.flushSentences(true);
+        this.raiseCost(this.sessionId, event.cost_eur);
         break;
       case "error":
         this.update({ error: event.message });
@@ -429,7 +467,7 @@ export class VoiceEngine {
     const agent = this.currentAgent;
     this.appendToAgentEntry(agent, text);
     // Start the request now so it downloads while earlier sentences play.
-    const body = speak(agent, this.snap.language, text, this.controller.signal)
+    const body = speak(agent, this.snap.language, text, this.sessionId, this.controller.signal)
       .then((response) => response.body)
       .catch((error: unknown) => {
         if (!isAbort(error)) console.warn("speech skipped:", message(error));
@@ -458,6 +496,24 @@ export class VoiceEngine {
       first_audio: since(turn.firstAudio),
       first_audio_kind: turn.firstAudioKind,
     }).catch(() => {});
+  }
+
+  // ---------------------------------------------------------------- running cost
+
+  /** Fetch the session's cost once a turn's audio has played; an answer for an older session is dropped. */
+  private async refreshCost(sessionId: string): Promise<void> {
+    try {
+      const usage = await getUsage(sessionId, this.controller.signal);
+      this.raiseCost(sessionId, usage.cost_eur);
+    } catch {
+      // ended, expired or unreachable: keep the last figure
+    }
+  }
+
+  /** Keep the highest total seen for the current session, since answers can arrive out of order. */
+  private raiseCost(sessionId: string | null, eur: number): void {
+    if (sessionId === null || sessionId !== this.sessionId || !(eur > this.snap.costEur)) return;
+    this.update({ costEur: eur });
   }
 
   // ---------------------------------------------------------------- fixed lines

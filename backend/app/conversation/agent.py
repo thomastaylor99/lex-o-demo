@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.conversation.events import EVENT_ADAPTER
 from app.conversation.stream import ToolChoice
@@ -21,6 +21,9 @@ class UiEvent(BaseModel):
 
     type: Literal["products.shown", "basket.updated", "profile.updated"]
     payload: dict[str, Any]
+    # Observer events go out at the end of the turn. When set, `latest` rebuilds the payload
+    # then, so a tool that changed the same state mid-turn (consent) is not undone by a snapshot.
+    latest: Callable[[], dict[str, Any]] | None = Field(default=None, exclude=True)
 
     @model_validator(mode="after")
     def _payload_fits_event(self) -> UiEvent:

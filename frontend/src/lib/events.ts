@@ -160,6 +160,8 @@ export interface ProfileUpdated extends EventBase {
 export interface TurnDone extends EventBase {
   type: "turn.done";
   timings: TurnTimings;
+  /** The session's running cost so far, in euros (speech-to-text, the models, text-to-speech). */
+  cost_eur: number;
 }
 
 export interface ErrorEvent extends EventBase {

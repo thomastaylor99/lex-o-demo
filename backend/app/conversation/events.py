@@ -88,6 +88,7 @@ class TurnTimings(BaseModel):
 class TurnDone(_Event):
     type: Literal["turn.done"] = "turn.done"
     timings: TurnTimings
+    cost_eur: float = 0.0  # the session's running cost so far
 
 
 class ErrorEvent(_Event):

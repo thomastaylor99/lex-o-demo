@@ -1,18 +1,21 @@
-"""The HTTP API over fake services (T15): a session, one turn streamed as SSE, the config."""
+"""The HTTP API over fake services (T15): a session, a turn as SSE, its cost, and the config."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.agents import FIRST_AGENT
 from app.catalogue.store import Catalogue
 from app.conversation.events import EVENT_ADAPTER, AnyEvent, TurnDone, TurnStarted
 from app.conversation.session import SessionStore
+from app.conversation.stream import StreamDelta
 from app.main import create_app
 from app.services import Services
 from app.settings import Settings
+from app.usage.meter import TokenUsage
 from app.voice.lines import LineCache
 from app.voice.stt import TranscriptionError, TranscriptionStream
 from tests.unit.fakes import ALPHA, BETA, ScriptedStreamer, reply, tool_call
@@ -20,10 +23,15 @@ from tests.unit.fakes import ALPHA, BETA, ScriptedStreamer, reply, tool_call
 FIXTURE_CATALOGUE = Path(__file__).parents[1] / "fixtures" / "catalogue_fixture.json"
 # Alpha stands in for the concierge: its `move` tool plays its handover line and switches to beta.
 AGENTS = {agent.id: agent for agent in (replace(ALPHA, id=FIRST_AGENT), BETA)}
+USAGE = StreamDelta(usage=TokenUsage(2_000, 100), model="mistral-small-latest")
 
 
 class SilentSynthesizer:
-    async def stream(self, text: str, voice_id: str) -> AsyncIterator[bytes]:
+    async def stream(
+        self, text: str, voice_id: str, on_request: Callable[[int], None] | None = None
+    ) -> AsyncIterator[bytes]:
+        if on_request is not None:
+            on_request(len(text))
         yield bytes(4)
 
     async def synthesize(self, text: str, voice_id: str) -> bytes:
@@ -51,7 +59,9 @@ def test_a_session_streams_a_turn_with_the_handover_as_sse():
         catalogue=Catalogue.load(FIXTURE_CATALOGUE),
         agents=AGENTS,
         sessions=SessionStore(first_agent=FIRST_AGENT, ttl_s=60),
-        streamer=ScriptedStreamer([[tool_call("move")], reply("Hello, I am beta.", " Welcome!")]),
+        streamer=ScriptedStreamer(
+            [[tool_call("move")], [*reply("Hello, I am beta.", " Welcome!"), USAGE]]
+        ),
         transcriber=NoTranscriber(),
         synthesizer=synthesizer,
         lines=LineCache(synthesizer),
@@ -79,6 +89,11 @@ def test_a_session_streams_a_turn_with_the_handover_as_sse():
                 "first_audio_kind": None,
             },
         )
+        speech = client.post(
+            "/voice/speak",
+            json={"agent": "beta", "language": "en", "text": "Hello.", "session_id": session_id},
+        )
+        usage = client.get(f"/sessions/{session_id}/usage").json()
         ended = client.delete(f"/sessions/{session_id}")
         unknown = client.post(
             "/conversation/stream", json={"session_id": session_id, "text": "Hello?"}
@@ -101,6 +116,11 @@ def test_a_session_streams_a_turn_with_the_handover_as_sse():
         "agent.switched",
     ]
     assert turn_id in services.turn_timings
+    assert speech.status_code == 200
+    assert usage["tokens"] == {"mistral-small-latest": {"prompt": 2_000, "completion": 100}}
+    assert usage["tts_characters"] == len("Hello.")
+    assert events[-1].cost_eur == usage["llm_eur"] > 0
+    assert usage["cost_eur"] == pytest.approx(usage["llm_eur"] + usage["tts_eur"], abs=1e-6)
     assert timings.status_code == 204
     assert ended.status_code == 204
     assert unknown.status_code == 404

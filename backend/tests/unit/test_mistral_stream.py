@@ -35,11 +35,10 @@ def fake_tool_call(*, index: int, id: str, name: str, arguments: Any) -> SimpleN
 def fake_event(
     *, content: Any = None, tool_calls: Any = None, has_choices: bool = True
 ) -> SimpleNamespace:
-    """An `event`-shaped object: `.data.choices[0].delta`, or no choices at all."""
-    if not has_choices:
-        return SimpleNamespace(data=SimpleNamespace(choices=[]))
-    delta = SimpleNamespace(content=content, tool_calls=tool_calls)
-    return SimpleNamespace(data=SimpleNamespace(choices=[SimpleNamespace(delta=delta)]))
+    """An `event`-shaped object: `.data.choices[0].delta`, or no choices at all, and no usage."""
+    choices = [SimpleNamespace(delta=SimpleNamespace(content=content, tool_calls=tool_calls))]
+    data = SimpleNamespace(model=MAIN_MODEL, usage=None, choices=choices if has_choices else [])
+    return SimpleNamespace(data=data)
 
 
 class FakeStream:

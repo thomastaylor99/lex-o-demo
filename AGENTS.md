@@ -45,6 +45,7 @@ scripts/verify     the verdict: every check that applies
 6. A change in behaviour updates its spec in the same change. Stale docs misled agents in the Decathlon repo.
 7. Experiments live in `spikes/`. Code in `backend/` and `frontend/` never imports from there; a spike that works gets rewritten into the app under a spec.
 8. Git: one branch per stream. Commits and pushes happen only with Thomas's explicit approval.
+9. Significant decisions go into `context/decisions.md` in the same change: date, choice, reason, and a pointer to the spec that details it.
 
 ## Mistral SDKs: Docstral first
 

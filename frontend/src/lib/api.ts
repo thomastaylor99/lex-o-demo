@@ -78,6 +78,23 @@ export async function endSession(id: string, signal?: AbortSignal): Promise<void
   await fetchChecked(`/sessions/${encodeURIComponent(id)}`, { method: "DELETE", signal });
 }
 
+/** `GET /sessions/{id}/usage`: the running cost in euros and what it is made of. */
+export interface SessionUsage {
+  cost_eur: number;
+  llm_eur: number;
+  stt_eur: number;
+  tts_eur: number;
+  /** Prompt and completion tokens by model id. */
+  tokens: Record<string, { prompt: number; completion: number }>;
+  stt_seconds: number;
+  tts_characters: number;
+}
+
+export async function getUsage(id: string, signal?: AbortSignal): Promise<SessionUsage> {
+  const res = await fetchChecked(`/sessions/${encodeURIComponent(id)}/usage`, { signal });
+  return res.json() as Promise<SessionUsage>;
+}
+
 // --- /config -----------------------------------------------------------------
 
 export interface LocalizedText {
@@ -110,14 +127,16 @@ export async function getConfig(signal?: AbortSignal): Promise<AppConfig> {
 /**
  * Starts a `/voice/speak` stream. The caller reads PCM (float32 little-endian,
  * 24 kHz, mono) from `response.body`. Throws `ApiError` on a non-OK status.
+ * With a session id, the speech counts in that session's running cost.
  */
 export function speak(
   agent: string,
   language: Language,
   text: string,
+  sessionId: string | null,
   signal?: AbortSignal,
 ): Promise<Response> {
-  return postJson("/voice/speak", { agent, language, text }, signal);
+  return postJson("/voice/speak", { agent, language, text, session_id: sessionId }, signal);
 }
 
 /** Fetches one cached fixed line. Same PCM format as `speak`. */
@@ -172,7 +191,12 @@ export async function postTimings(
 
 // --- streaming URLs ------------------------------------------------------------
 
-/** `ws://` (or `wss://` when the API base is `https://`) URL of `/ws/transcribe`. */
-export function transcribeUrl(): string {
-  return `${API_BASE_URL.replace(/^http/, "ws")}/ws/transcribe`;
+/**
+ * `ws://` (or `wss://` when the API base is `https://`) URL of `/ws/transcribe`. `language` is the
+ * default when the text cannot tell; with a session id, the audio counts in that session's cost.
+ */
+export function transcribeUrl(language: Language, sessionId: string | null): string {
+  const query = new URLSearchParams({ language });
+  if (sessionId) query.set("session_id", sessionId);
+  return `${API_BASE_URL.replace(/^http/, "ws")}/ws/transcribe?${query}`;
 }

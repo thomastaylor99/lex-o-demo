@@ -47,6 +47,7 @@ ALL_EVENTS = [
             tools=[ToolTiming(name="search_products", duration_ms=15)],
             total_ms=300,
         ),
+        cost_eur=0.0123,
     ),
     ErrorEvent(turn_id="t1", t_ms=100, message="boom", recoverable=True),
 ]

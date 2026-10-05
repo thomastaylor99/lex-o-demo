@@ -2,14 +2,14 @@
 
 The PCM is float32 little-endian, 24 kHz, mono. About one request in ten stalls before its first
 chunk, sometimes for 10 s, so a slow request gets a second one raced against it (hedging) and
-the first to deliver audio wins.
+the first to deliver audio wins. Every request started is billed, so `on_request` reports each one.
 """
 
 import asyncio
 import base64
 import re
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Protocol
 
 import structlog
@@ -20,12 +20,15 @@ from mistralai.client.utils.eventstreaming import EventStreamAsync
 AUDIO_FORMAT = "f32le;rate=24000;channels=1"
 
 SpeechEvents = EventStreamAsync[SpeechStreamEvents]
+RequestHook = Callable[[int], None]  # hears the characters of each TTS request started
 
 logger = structlog.get_logger()
 
 
 class Synthesizer(Protocol):
-    def stream(self, text: str, voice_id: str) -> AsyncIterator[bytes]: ...
+    def stream(
+        self, text: str, voice_id: str, on_request: RequestHook | None = None
+    ) -> AsyncIterator[bytes]: ...
 
     async def synthesize(self, text: str, voice_id: str) -> bytes: ...
 
@@ -52,13 +55,18 @@ class MistralSynthesizer:
         self._hedge_after_s = first_chunk_timeout_s if hedge_after_s is None else hedge_after_s
         self._max_attempts = max_attempts
 
-    async def stream(self, text: str, voice_id: str) -> AsyncIterator[bytes]:
-        """PCM chunks as they arrive. Raises TimeoutError when every attempt stalls."""
+    async def stream(
+        self, text: str, voice_id: str, on_request: RequestHook | None = None
+    ) -> AsyncIterator[bytes]:
+        """PCM chunks as they arrive. Raises TimeoutError when every attempt stalls.
+
+        `on_request` hears the characters of every request started, hedges included.
+        """
         text = speakable(text)
         if not text:
             return
         started = time.perf_counter()
-        events, chunk = await self._start(text, voice_id)
+        events, chunk = await self._start(text, voice_id, on_request)
         first_chunk_ms = round((time.perf_counter() - started) * 1000)
         logger.info("tts_first_chunk", voice_id=voice_id, first_chunk_ms=first_chunk_ms)
         async with events:
@@ -69,7 +77,9 @@ class MistralSynthesizer:
     async def synthesize(self, text: str, voice_id: str) -> bytes:
         return b"".join([chunk async for chunk in self.stream(text, voice_id)])
 
-    async def _start(self, text: str, voice_id: str) -> tuple[SpeechEvents, bytes | None]:
+    async def _start(
+        self, text: str, voice_id: str, on_request: RequestHook | None
+    ) -> tuple[SpeechEvents, bytes | None]:
         """The first attempt to deliver audio wins; the others are cancelled and closed."""
         pending: set[asyncio.Task[tuple[SpeechEvents, bytes | None]]] = set()
         error: BaseException | None = None
@@ -81,6 +91,8 @@ class MistralSynthesizer:
                         logger.warning("tts_hedge", voice_id=voice_id, attempt=attempts + 1)
                     pending.add(asyncio.create_task(self._attempt(text, voice_id)))
                     attempts += 1
+                    if on_request is not None:
+                        on_request(len(text))
                 if not pending:
                     break
                 timeout = self._hedge_after_s if attempts < self._max_attempts else None

@@ -2,7 +2,7 @@
 
 import asyncio
 import base64
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from types import SimpleNamespace
 from typing import Any
 
@@ -29,8 +29,12 @@ class FakeSynthesizer:
         self.requests: list[tuple[str, str]] = []
         self.error = error
 
-    async def stream(self, text: str, voice_id: str) -> AsyncIterator[bytes]:
+    async def stream(
+        self, text: str, voice_id: str, on_request: Callable[[int], None] | None = None
+    ) -> AsyncIterator[bytes]:
         self.requests.append((text, voice_id))
+        if on_request is not None:
+            on_request(len(text))
         if self.error is not None:
             raise self.error
         for chunk in CHUNKS:

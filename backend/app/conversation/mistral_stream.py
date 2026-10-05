@@ -5,18 +5,21 @@ Maps `client.chat.stream_async` events to `StreamDelta`s. The chat spike
 has not produced a first delta within `first_token_timeout_s` is cancelled and
 retried: once more on the same model, then once on `fallback_model`. Once a
 delta has been yielded, errors propagate to the caller unchanged, so the loop
-can turn them into an `error` event.
+can turn them into an `error` event. The last chunk of a call carries its token
+usage and the answering model, which ride on the last delta for the session meter.
 """
 
 import asyncio
 import json
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from typing import Any
 
 import structlog
 from mistralai.client import Mistral
 
 from app.conversation.stream import StreamDelta, ToolCallFragment, ToolChoice
+from app.usage.meter import TokenUsage
 
 logger = structlog.get_logger(__name__)
 
@@ -44,6 +47,13 @@ def _content_text(content: Any) -> str | None:
         )
         return text or None
     return None
+
+
+def _usage(usage: Any) -> TokenUsage | None:
+    """A chunk's `UsageInfo` as TokenUsage; only the last chunk of a call carries one."""
+    if usage is None:
+        return None
+    return TokenUsage(usage.prompt_tokens or 0, usage.completion_tokens or 0)
 
 
 def _tool_call_fragments(tool_calls: Any) -> tuple[ToolCallFragment, ...]:
@@ -142,9 +152,15 @@ class MistralStreamer:
             async with await self._client.chat.stream_async(**kwargs) as events:
                 first_delta = True
                 async for event in events:
-                    if not event.data.choices:
+                    chunk = event.data
+                    usage = _usage(chunk.usage)
+                    if not chunk.choices:
+                        if usage is not None:
+                            yield StreamDelta(usage=usage, model=chunk.model)
                         continue
-                    delta = to_delta(event.data.choices[0].delta)
+                    delta = to_delta(chunk.choices[0].delta)
+                    if usage is not None:
+                        delta = replace(delta, usage=usage, model=chunk.model)
                     if first_delta:
                         deadline.reschedule(None)  # first delta arrived: disarm the timeout
                         first_delta = False

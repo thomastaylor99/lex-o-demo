@@ -16,6 +16,7 @@ from mistralai.extra.realtime import RealtimeConnection
 from websockets.exceptions import ConnectionClosed
 
 AUDIO_FORMAT = AudioFormat(encoding="pcm_s16le", sample_rate=16000)
+PCM_BYTES_PER_SECOND = 16000 * 2  # 16 kHz mono, two bytes a sample
 # The only model that accepts context_bias; the 2602 mini answers it with an error and a 1011 close.
 BIAS_MODEL = "voxtral-transcribe-realtime-3"
 

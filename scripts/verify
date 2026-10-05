@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # The verdict: runs every check that applies to what exists in the repo today.
 #
-#   scripts/verify           harness, backend, frontend (including the build)
-#   scripts/verify --quick   skips the frontend build and anything that calls a paid API
-#   scripts/verify --golden  adds the golden conversations (live Mistral API, needs MISTRAL_API_KEY)
+#   scripts/verify           harness, backend, frontend (including the build and the scripted browser test)
+#   scripts/verify --quick   skips the frontend build, the browser tests and anything that calls a paid API
+#   scripts/verify --golden  adds the golden conversations and the live audio browser test
+#                            (live Mistral API, needs MISTRAL_API_KEY; the browser test needs the backend on :8000)
 #
 # Exits 0 when every check passes, 1 otherwise. Written for the macOS system bash (3.2).
 
@@ -123,8 +124,25 @@ if [ -f frontend/package.json ]; then
     run "eslint" bash -c 'cd frontend && npm run --silent lint'
     # next typegen writes the route types (LayoutProps and friends) that tsc needs before any build
     run "tsc --noEmit" bash -c 'cd frontend && npx --no-install next typegen >/dev/null && npx --no-install tsc --noEmit'
+    run "unit tests" bash -c 'cd frontend && npx --no-install playwright test --project=unit --reporter=line'
     if ! $quick; then
+      before=$failed
       run "next build" bash -c 'cd frontend && npm run --silent build'
+      if [ "$failed" -ne "$before" ]; then
+        warn "browser tests skipped: the build failed"
+      else
+        # Chrome against next start on :3210 (E2E_PORT), or a server already answering there
+        run "e2e, scripted conversation" bash -c 'cd frontend && npx --no-install playwright test --project=e2e --grep-invert @golden --reporter=line'
+        if $golden; then
+          if curl -sf -m 3 -o /dev/null http://localhost:8000/health; then
+            run "e2e, live audio (live API)" bash -c 'cd frontend && LIVE=1 npx --no-install playwright test --project=e2e --grep @golden --reporter=line'
+          else
+            warn "e2e live audio skipped: no backend answers on :8000"
+          fi
+        fi
+      fi
+    elif $golden; then
+      warn "e2e live audio skipped: it needs the build (run without --quick)"
     fi
   fi
 fi

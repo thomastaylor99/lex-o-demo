@@ -1,4 +1,4 @@
-"""Session routes (spec 001): open a visitor conversation, and end it."""
+"""Session routes (spec 001): open a visitor conversation, read its running cost, and end it."""
 
 import structlog
 from fastapi import APIRouter, HTTPException, Request
@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from app.lang import Language
 from app.services import Services
+from app.usage.meter import UsageReport
 
 WELCOME_LINE = "welcome"  # the first agent's fixed line the browser plays to open the session
 
@@ -36,6 +37,16 @@ async def create_session(request: Request, body: SessionRequest | None = None) -
         language=session.language,
         welcome_line=WELCOME_LINE,
     )
+
+
+@router.get("/sessions/{session_id}/usage")
+async def session_usage(session_id: str, request: Request) -> UsageReport:
+    """The session's running cost in euros, by stage, with the tokens, seconds and characters."""
+    services: Services = request.app.state.services
+    session = services.sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Unknown session {session_id!r}")
+    return session.usage.report()
 
 
 @router.delete("/sessions/{session_id}", status_code=204)

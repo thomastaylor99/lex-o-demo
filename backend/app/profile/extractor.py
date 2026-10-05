@@ -6,6 +6,7 @@ never sees `Field` descriptions.
 """
 
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 
 import structlog
 from mistralai.client import Mistral
@@ -15,6 +16,7 @@ from app.catalogue.models import Concern, SkinType, TexturePreference
 from app.conversation.agent import Observer, UiEvent
 from app.conversation.session import Session
 from app.profile.models import BudgetBand, HairType, ProfileUpdate, RoutineSize, merge
+from app.usage.meter import TokenUsage
 
 log = structlog.get_logger()
 
@@ -70,7 +72,16 @@ Fields and their allowed values:
 Never fill a field from what the visitor says about someone else, such as a sister or a friend:
 that is never the visitor's own profile. Never copy a value the adviser only suggested."""
 
-Parse = Callable[[str, list[dict[str, str]]], Awaitable[ProfileExtraction | None]]
+
+@dataclass(frozen=True)
+class Parsed:
+    """One structured-output call: its extraction (None if the model gave none) and its usage."""
+
+    extraction: ProfileExtraction | None
+    usage: TokenUsage | None = None
+
+
+Parse = Callable[[str, list[dict[str, str]]], Awaitable[Parsed]]
 
 
 def to_update(extraction: ProfileExtraction) -> ProfileUpdate:
@@ -122,10 +133,13 @@ def make_profile_observer(parse: Parse, model: str) -> Observer:
             {"role": "user", "content": _user_message(user_text, previous_reply)},
         ]
         try:
-            extraction = await parse(model, messages)
+            parsed = await parse(model, messages)
         except Exception:
             log.exception("profile_extraction_failed", session_id=session.id, model=model)
             return []
+        if parsed.usage is not None:
+            session.usage.add_llm(model, parsed.usage)
+        extraction = parsed.extraction
         if extraction is None:
             log.warning("profile_extraction_empty", session_id=session.id, model=model)
             return []
@@ -135,6 +149,7 @@ def make_profile_observer(parse: Parse, model: str) -> Observer:
             UiEvent(
                 type="profile.updated",
                 payload={"profile": session.profile.model_dump(mode="json")},
+                latest=lambda: {"profile": session.profile.model_dump(mode="json")},
             )
         ]
 
@@ -143,16 +158,17 @@ def make_profile_observer(parse: Parse, model: str) -> Observer:
 
 def mistral_parser(client: Mistral) -> Parse:
     """The real `parse`: client.chat.parse_async with temperature 0, as the chat-engine
-    spike's bench_extractor.py did.
+    spike's bench_extractor.py did, returning the response's token usage with the extraction.
     """
 
-    async def parse(model: str, messages: list[dict[str, str]]) -> ProfileExtraction | None:
+    async def parse(model: str, messages: list[dict[str, str]]) -> Parsed:
         response = await client.chat.parse_async(
             model=model,
             messages=messages,
             response_format=ProfileExtraction,
             temperature=0,
         )
-        return response.choices[0].message.parsed
+        usage = TokenUsage(response.usage.prompt_tokens or 0, response.usage.completion_tokens or 0)
+        return Parsed(extraction=response.choices[0].message.parsed, usage=usage)
 
     return parse

@@ -26,6 +26,9 @@ node_modules/
 *.webm
 *.mp3
 *.m4a
+# Synthetic test voices made with the TTS are fixtures, not visitor audio
+!backend/tests/fixtures/audio/*.wav
+!frontend/tests/fixtures/audio/*.wav
 
 # macOS
 .DS_Store

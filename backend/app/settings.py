@@ -28,4 +28,8 @@ class Settings(BaseSettings):
     session_ttl_s: int = 1800
     observer_timeout_s: float = 3.0
     catalogue_path: Path = REPO_ROOT / "backend" / "app" / "catalogue" / "data" / "products.json"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3100",
+        "http://localhost:3210",
+    ]

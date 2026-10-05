@@ -40,6 +40,37 @@ const LABELS = {
     notSaved: "Not saved",
     fragranceFree: "Fragrance-free",
     end: "End",
+    // Frost skin
+    avgReply: "Avg reply",
+    p90: "p90",
+    cost: "Cost",
+    restart: "Restart",
+    camera: "Camera",
+    cameraPreview: "Camera preview",
+    cameraCaption: "Camera: the expert will look at your skin",
+    joined: "joined",
+    connecting: "Connecting",
+    basketEmpty: "Products you choose appear here.",
+    customerRecord: "Customer record",
+    recordSubtitle: "What L'Oréal would store",
+    of: "of",
+    rowFirstName: "First name",
+    rowLanguage: "Language",
+    rowSkinType: "Skin type",
+    rowConcerns: "Concerns",
+    rowSensitivity: "Sensitivity",
+    rowTexture: "Texture",
+    rowBudget: "Budget",
+    rowRoutine: "Routine size",
+    rowHair: "Hair",
+    languageName: { en: "English", fr: "French" } satisfies Record<Language, string>,
+    notCaptured: "Not captured yet",
+    notReactive: "Not reactive",
+    consentPending: "Consent asked before saving",
+    tryAgain: "Try again",
+    microphoneMode: "Microphone mode",
+    errorGeneric: "Something went wrong. Please try again.",
+    errorMic: "The microphone is not available.",
   },
   fr: {
     advisor: "Conseil beauté",
@@ -77,6 +108,37 @@ const LABELS = {
     notSaved: "Non enregistré",
     fragranceFree: "Sans parfum",
     end: "Terminer",
+    // Frost skin
+    avgReply: "Réponse moy.",
+    p90: "p90",
+    cost: "Coût",
+    restart: "Recommencer",
+    camera: "Caméra",
+    cameraPreview: "Aperçu caméra",
+    cameraCaption: "Caméra : l'experte va observer votre peau",
+    joined: "a rejoint la conversation",
+    connecting: "Connexion",
+    basketEmpty: "Les produits choisis apparaissent ici.",
+    customerRecord: "Fiche client",
+    recordSubtitle: "Ce que L'Oréal conserverait",
+    of: "sur",
+    rowFirstName: "Prénom",
+    rowLanguage: "Langue",
+    rowSkinType: "Type de peau",
+    rowConcerns: "Préoccupations",
+    rowSensitivity: "Sensibilité",
+    rowTexture: "Texture",
+    rowBudget: "Budget",
+    rowRoutine: "Routine",
+    rowHair: "Cheveux",
+    languageName: { en: "Anglais", fr: "Français" } satisfies Record<Language, string>,
+    notCaptured: "Pas encore renseigné",
+    notReactive: "Non réactive",
+    consentPending: "Consentement demandé avant l'enregistrement",
+    tryAgain: "Réessayer",
+    microphoneMode: "Mode du micro",
+    errorGeneric: "Un problème est survenu. Veuillez réessayer.",
+    errorMic: "Le micro n'est pas disponible.",
   },
 } as const;
 
@@ -99,6 +161,16 @@ export function formatSeconds(ms: number, language: Language): string {
     maximumFractionDigits: 1,
   }).format(ms / 1000);
   return `${seconds} s`;
+}
+
+/** The running cost of a conversation, to the tenth of a cent ("€0.031", "0,031 €"). */
+export function formatCost(eur: number, language: Language): string {
+  return new Intl.NumberFormat(language === "fr" ? "fr-FR" : "en-GB", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(eur);
 }
 
 const ROUTINE_STEPS: Record<Language, Record<string, string>> = {

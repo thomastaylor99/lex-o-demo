@@ -7,7 +7,7 @@ One folder per stream of work: `specs/<nnn>-<name>/`. The number sets the build 
 1. Brainstorm the stream with Thomas (superpowers `brainstorming` skill): one question at a time, scope settled before design.
 2. Write `spec.md` from `_template/spec.md`. Thomas approves it before any plan.
 3. Write `plan.md` (superpowers `writing-plans`): small steps, each naming the files it touches and the check that proves it.
-4. Track execution in `tasks.md`. Subagents take one task each; the main session reviews their work.
+4. Track execution in `tasks.md`. Subagents take one task each, in parallel when their files do not overlap. For the demo, the check is `scripts/verify` plus a run by Thomas; there is no per-task review (decided 2026-10-04, see `context/decisions.md`).
 5. Done means `scripts/verify` passes, the success criteria are met with evidence, and the spec describes what was built.
 
 ## Rules

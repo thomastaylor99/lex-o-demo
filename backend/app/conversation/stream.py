@@ -4,6 +4,8 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from app.usage.meter import TokenUsage
+
 ToolChoice = str | dict[str, Any]
 
 
@@ -19,6 +21,8 @@ class ToolCallFragment:
 class StreamDelta:
     content: str | None = None
     tool_calls: tuple[ToolCallFragment, ...] = ()
+    usage: TokenUsage | None = None  # on the call's last chunk
+    model: str | None = None  # the model that answered, sent with the usage (fallbacks happen)
 
 
 class ChatStreamer(Protocol):

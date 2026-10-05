@@ -4,6 +4,8 @@ In: {"type": "audio", "audio": <base64 PCM, 16 kHz mono s16le>}, then {"type": "
 Out: {"type": "text_delta", "text"} per delta, then {"type": "done", "text", "language",
 "stt_final_ms"}, or {"type": "error", "message"}; then the socket closes. `stt_final_ms` runs
 from receiving `end` to the final text. Audio stays in memory; logs hold text and timings only.
+With a `session_id`, the audio forwarded counts in that session's usage, measured from its bytes:
+the realtime `usage.prompt_audio_seconds` read 2 or 3 whatever the clip length (STT spike).
 """
 
 import asyncio
@@ -17,8 +19,15 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import Base64Bytes, BaseModel, Field, TypeAdapter
 
 from app.lang import Language
+from app.services import Services
 from app.voice.language import detect
-from app.voice.stt import SttDelta, Transcriber, TranscriptionError, TranscriptionStream
+from app.voice.stt import (
+    PCM_BYTES_PER_SECOND,
+    SttDelta,
+    Transcriber,
+    TranscriptionError,
+    TranscriptionStream,
+)
 
 DONE_TIMEOUT_S = 5.0  # wait for the final text after `end`, as the reference did
 
@@ -61,13 +70,17 @@ class ErrorMessage(BaseModel):
 class _Utterance:
     default_language: Language
     end_at: float | None = None
+    audio_bytes: int = 0  # PCM forwarded upstream
 
 
 @router.websocket("/ws/transcribe")
-async def transcribe(websocket: WebSocket, language: Language | None = None) -> None:
+async def transcribe(
+    websocket: WebSocket, language: Language | None = None, session_id: str | None = None
+) -> None:
     """Bridge one utterance; `language` is the default when the text cannot tell (else "en")."""
     await websocket.accept()
-    transcriber: Transcriber = websocket.app.state.services.transcriber
+    services: Services = websocket.app.state.services
+    transcriber: Transcriber = services.transcriber
     try:
         stream = await transcriber.open()
     except Exception as exc:
@@ -88,6 +101,8 @@ async def transcribe(websocket: WebSocket, language: Language | None = None) -> 
         with contextlib.suppress(WebSocketDisconnect, RuntimeError):
             await websocket.close()
     finally:
+        # Count first: a cancelled handler would stop at the await below and lose the audio.
+        _count_audio(services, session_id, utterance.audio_bytes)
         await stream.close()
 
 
@@ -106,6 +121,7 @@ async def _pump_audio(
             await stream.end()
             return
         await stream.send(message.audio)
+        utterance.audio_bytes += len(message.audio)
 
 
 async def _forward_events(
@@ -125,6 +141,13 @@ async def _forward_events(
         logger.info("stt_done", text=event.text, language=language, stt_final_ms=stt_final_ms)
         return
     raise TranscriptionError("The transcription ended without a final text")
+
+
+def _count_audio(services: Services, session_id: str | None, audio_bytes: int) -> None:
+    """Add the seconds of audio forwarded to the session's usage, if the session is still live."""
+    session = services.sessions.get(session_id) if session_id and audio_bytes else None
+    if session is not None:
+        session.usage.add_stt(services.settings.stt_model, audio_bytes / PCM_BYTES_PER_SECOND)
 
 
 async def _send(websocket: WebSocket, message: BaseModel) -> None:

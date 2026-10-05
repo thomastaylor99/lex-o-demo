@@ -10,6 +10,7 @@ from typing import Any
 from app.catalogue.basket import Basket
 from app.lang import Language
 from app.profile.models import BeautyProfile
+from app.usage.meter import UsageMeter
 
 
 @dataclass
@@ -20,6 +21,7 @@ class Session:
     history: list[dict[str, Any]] = field(default_factory=list, repr=False)
     profile: BeautyProfile = field(default_factory=BeautyProfile, repr=False)
     basket: Basket = field(default_factory=Basket, repr=False)
+    usage: UsageMeter = field(default_factory=UsageMeter, repr=False)
     turn_index: int = 0
     active_since_turn: int = 0
     flags: dict[str, Any] = field(default_factory=dict, repr=False)

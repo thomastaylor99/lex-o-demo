@@ -1,6 +1,7 @@
 """The skincare expert: diagnoses, searches the catalogue and builds a routine (spec 002)."""
 
 import json
+import re
 from collections.abc import Mapping
 
 from app.agents.prompts import LINES, SKINCARE_INSTRUCTIONS
@@ -12,6 +13,18 @@ from app.lang import LANGUAGE_NAMES
 
 # Expert turns (since the handoff) without a search before the loop forces one.
 TURNS_BEFORE_FORCED_SEARCH = 4
+
+# A named skin condition or a request for a cure, in English or French (claims policy).
+MEDICAL = re.compile(
+    r"eczema|eczéma|psoria|rosacea|rosacée|\bacne\b|\bacné|dermatit|allerg|\brash|urticai"
+    r"|\bcure|\bheal|guéri|soigne",
+    re.IGNORECASE,
+)
+MEDICAL_NOTE = (
+    "The visitor named a skin condition or asked for a cure. Start the reply by saying you can't "
+    "give medical advice and that a pharmacist or a dermatologist is the right person to ask, "
+    "then offer help with products for their skin type."
+)
 
 
 def _tool_choice(session: Session) -> ToolChoice:
@@ -31,8 +44,13 @@ def _context_block(session: Session) -> str:
             f"Visitor profile so far: {json.dumps(profile, ensure_ascii=False)}",
             f"Basket: {json.dumps(session.basket.view(), ensure_ascii=False)}",
             f"Products already shown: {', '.join(shown_ids) or 'none'}",
+            *([MEDICAL_NOTE] if MEDICAL.search(_latest_visitor_text(session)) else []),
         ]
     )
+
+
+def _latest_visitor_text(session: Session) -> str:
+    return next((m["content"] for m in reversed(session.history) if m["role"] == "user"), "")
 
 
 def build_skincare(model: str, tools: Mapping[str, Tool]) -> AgentConfig:

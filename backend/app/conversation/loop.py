@@ -79,6 +79,8 @@ async def run_turn(
                 tools=[t.schema() for t in agent.tools] or None,
                 tool_choice=choice if agent.tools else None,
             ):
+                if delta.usage is not None:
+                    session.usage.add_llm(delta.model or agent.model, delta.usage)
                 if first is None and (delta.content or delta.tool_calls):
                     first = clock()
                 if delta.content:
@@ -166,7 +168,12 @@ async def run_turn(
     for event in await _collect(tasks, observer_timeout_s, turn_id, ms):
         yield event
     timings.total_ms = ms()
-    yield TurnDone(turn_id=turn_id, t_ms=timings.total_ms, timings=timings)
+    yield TurnDone(
+        turn_id=turn_id,
+        t_ms=timings.total_ms,
+        timings=timings,
+        cost_eur=session.usage.cost_eur(),
+    )
 
 
 async def _execute(
@@ -223,8 +230,9 @@ def _messages(agent: AgentConfig, session: Session) -> list[dict[str, Any]]:
 
 
 def _stamp(ui: UiEvent, turn_id: str, t_ms: int) -> AnyEvent:
+    payload = ui.latest() if ui.latest is not None else ui.payload
     return EVENT_ADAPTER.validate_python(
-        {"type": ui.type, "turn_id": turn_id, "t_ms": t_ms, **ui.payload}
+        {"type": ui.type, "turn_id": turn_id, "t_ms": t_ms, **payload}
     )
 
 

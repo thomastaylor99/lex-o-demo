@@ -11,6 +11,31 @@ Start with `AGENTS.md`: layout, workflow and rules, for agents and people alike.
 3. Check that the Decathlon reference export exists at the path in `.claude/settings.local.json`. `context/reference-map.md` has the command to recreate it.
 4. Run `scripts/verify`.
 
+## Run the browser app
+
+Backend, from `backend/`:
+
+```
+uv run uvicorn app.main:app --port 8000
+```
+
+Frontend, from `frontend/`:
+
+```
+npm install                 # once
+npm run build
+npx next start -p 3100
+```
+
+Open http://localhost:3100 in Chrome, click Begin and allow the microphone.
+
+- `?mock=1` plays the scripted conversation on the same screen, with no backend.
+- `?camera=1` shows the camera switch in the header (the V2 camera slot).
+- `?autostart=1` skips the welcome screen, for rehearsals. Chrome may hold the audio until the page gets a click.
+- Restart, in the header, ends the conversation and returns to the welcome screen for the next visitor.
+- The frontend calls the backend at `NEXT_PUBLIC_API_URL` (default http://localhost:8000). Set it before `npm run build`, which bakes it into the bundle.
+- The UI templates stay under http://localhost:3100/templates.
+
 ## Test the voice flow in the terminal
 
 From `backend/`:

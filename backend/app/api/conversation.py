@@ -74,5 +74,6 @@ async def _frames(services: Services, session: Session, body: TurnRequest) -> As
                         user_text=body.text,
                         reply_text="".join(reply),
                         timings=event.timings.model_dump(),
+                        cost_eur=event.cost_eur,
                     )
                 yield to_sse(event)
