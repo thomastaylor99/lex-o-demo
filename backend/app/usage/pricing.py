@@ -32,10 +32,9 @@ TOKEN_PRICES: dict[str, TokenPrice] = {
 
 # Euros per minute of audio sent.
 STT_EUR_PER_MINUTE: dict[str, float] = {
-    # Placeholder until Thomas confirms it: realtime-3 is missing from the public price list, so
-    # this is the Decathlon demo's figure, 0.03 USD a minute, taken as euros. The listed realtime
-    # model below costs 0.0053 EUR a minute.
-    "voxtral-transcribe-realtime-3": 0.03,
+    # realtime-3 is missing from the public price list; Thomas chose the listed realtime price
+    # (2026-10-05) over the Decathlon demo's 0.03.
+    "voxtral-transcribe-realtime-3": 0.0053,
     "voxtral-mini-transcribe-realtime-2602": 0.0053,
 }
 

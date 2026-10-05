@@ -4,9 +4,10 @@ through POST /conversation/stream on the live app, one session each, `language` 
 They assert structure (handover, tools, product ids, basket totals, reply language) and forbidden
 content (medical wording, competitors, benefits no approved claim supports, read by the claims
 judge), never exact wording. The golden path is the demo script in
-frontend/src/dev/mockVoiceAgent.ts.
+frontend/src/dev/mockVoiceAgent.ts, extended with the tutorials and the email recap of spec 006.
 """
 
+import json
 import re
 
 import pytest
@@ -27,7 +28,10 @@ GOLDEN_PATH_EN = [
     "The first one sounds perfect, I'll take it.",
     "Yes please, add the cleanser.",
     "Yes, please save it. My name is Camille.",
+    "Yes, please send it to camille dot martin at example dot com.",
+    "Yes, that's right.",
 ]
+COUPON = re.compile(r"LEX-[A-HJ-NP-Z2-9]{4}")
 SWITCH_EN_FR: list[tuple[Language, str]] = [
     ("en", "Hi, I need a new face cream, my skin feels dry."),
     ("en", "Normal to dry, and not sensitive at all."),
@@ -62,9 +66,24 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
 
     assert handed_over(turns[0]), [event["type"] for event in turns[0].events]
     called = {event["name"] for turn in turns for event in turn.of("tool.started")}
-    assert {"search_products", "get_routine", "add_to_basket", "save_profile"} <= called, called
+    journey = {"search_products", "get_routine", "add_to_basket", "save_profile", "show_tutorials"}
+    assert journey <= called, called
     saves = [event["args"] for turn in turns for event in turn.calls("save_profile")]
     assert any(args.get("consent") is True for args in saves), saves
+
+    readback, confirm = turns[-2], turns[-1]
+    spelt = re.sub(r"[^a-z]", "", readback.reply().lower())  # "c, a, m, i..." reads as camille
+    assert "camille" in spelt and "example" in spelt, readback.reply()
+    assert not readback.of("recap.ready"), "the recap went before the visitor confirmed"
+    assert confirm.calls("send_recap"), [event["type"] for event in confirm.events]
+    recaps = confirm.of("recap.ready")
+    assert recaps, [event["type"] for event in confirm.events]
+    recap = recaps[-1]
+    assert recap["email_masked"].endswith("@example.com"), recap["email_masked"]
+    assert "martin" not in recap["email_masked"], recap["email_masked"]
+    assert COUPON.fullmatch(recap["coupon"]["code"]), recap["coupon"]
+    for event in confirm.of("profile.updated") + recaps:
+        assert "martin" not in json.dumps(event), event
 
     shown = [event for turn in turns for event in turn.of("products.shown")]
     shown_ids = {product["id"] for event in shown for product in event["products"]}
@@ -84,7 +103,8 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     assert (profile["consent"], profile["first_name"]) == ("given", "Camille"), profile
     assert (profile["skin_type"], profile["sensitive"]) == ("dry", True), profile
     assert (profile["texture_preference"], profile["budget_band"]) == ("rich", "20_to_40"), profile
-    breaches = judge.breaches(turns)
+    assert profile["email"] == recap["email_masked"], profile
+    breaches = judge.breaches(turns) + judge.recap_breaches(turns)
     assert not breaches, "\n".join(breaches)
 
 

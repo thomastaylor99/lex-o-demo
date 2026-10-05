@@ -5,20 +5,23 @@
  */
 
 import type { MicMode } from "@/lib/api";
-import type { Basket, BeautyProfile, Language, ProductView } from "@/lib/events";
+import type { Basket, BeautyProfile, Coupon, Language, ProductView, TutorialView } from "@/lib/events";
 
 export type AgentActivity = "idle" | "listening" | "thinking" | "speaking";
 
 export interface TranscriptEntry {
   id: string;
-  /** "products" marks where a product group appeared in the conversation (inline carousel). */
-  kind: "visitor" | "agent" | "handover" | "products";
+  /**
+   * "products", "tutorials" and "recap" mark where a product group, a tutorial group or the
+   * email recap appeared in the conversation.
+   */
+  kind: "visitor" | "agent" | "handover" | "products" | "tutorials" | "recap";
   /** Agent id for agent, handover and products entries, null for the visitor. */
   agent: string | null;
   text: string;
   /** False while the visitor is still speaking or the agent is still streaming. */
   final: boolean;
-  /** For "products" entries: the id of the ProductGroup shown at this point. */
+  /** For "products" and "tutorials" entries: the id of the group shown at this point. */
   groupId?: string;
 }
 
@@ -29,6 +32,19 @@ export interface ReplyStats {
   p90Ms: number | null;
   minMs: number | null;
   maxMs: number | null;
+}
+
+export interface TutorialGroup {
+  id: string;
+  tutorials: TutorialView[];
+}
+
+/** The email recap of the discovery, shown as a preview (spec 006). */
+export interface Recap {
+  emailMasked: string;
+  subject: string;
+  body: string;
+  coupon: Coupon;
 }
 
 export interface ProductGroup {
@@ -61,6 +77,8 @@ export interface VoiceAgent {
   agents: AgentIdentity[];
   transcript: TranscriptEntry[];
   productGroups: ProductGroup[];
+  tutorialGroups: TutorialGroup[];
+  recap: Recap | null;
   basket: Basket;
   profile: BeautyProfile | null;
   /** Time from the end of the visitor's speech to the first sound of the last turn, in ms. */

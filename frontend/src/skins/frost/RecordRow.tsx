@@ -32,6 +32,7 @@ export function RecordRow({ label, value, raw, empty }: { label: string; value: 
           fontSize: captured ? fs(17) : fs(15),
           fontWeight: captured ? 600 : 400,
           lineHeight: 1.3,
+          overflowWrap: "anywhere",
           color: captured ? INK : QUIET,
         }}
       >

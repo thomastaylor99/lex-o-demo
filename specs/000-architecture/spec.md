@@ -6,6 +6,8 @@
 
 Frame every stream of the L'Oréal Learning Expedition demo: where the code lives, what it builds on, how agents work in it, and how work gets checked. Feature specs (001 onward) decide everything else.
 
+The system as built at V1, with its diagrams, agents, models and design system, is described in `specs/v1/architecture.md`.
+
 ## Decisions
 
 | Decision | Choice | Why |

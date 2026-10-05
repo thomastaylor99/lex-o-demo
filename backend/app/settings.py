@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     llm_first_token_timeout_s: float = 2.5
     extractor_model: str = "mistral-small-latest"
     judge_model: str = "mistral-medium-latest"
+    recap_model: str = "mistral-small-latest"
     tts_model: str = "voxtral-mini-tts-2603"
     tts_first_chunk_timeout_s: float = 5.0  # per attempt
     tts_hedge_after_s: float = 0.9  # race a second request when the first is this slow

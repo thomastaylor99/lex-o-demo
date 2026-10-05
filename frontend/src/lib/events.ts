@@ -39,6 +39,8 @@ export interface ProductView {
   url: string;
   claims: ProductClaim[];
   usage_notes: ProductClaim[];
+  /** One sentence on why this product suits this visitor, built from facts (spec 006). */
+  fit?: string | null;
 }
 
 /** `backend/app/catalogue/basket.py::BasketItem`. Carried by `basket.updated`. */
@@ -71,6 +73,8 @@ export interface BeautyProfile {
   hair_type: HairType | null;
   hair_concerns: string[];
   consent: Consent;
+  /** Masked (c***@gmail.com); set by send_recap only (spec 006). */
+  email?: string | null;
 }
 
 export interface ModelCallTiming {
@@ -164,6 +168,40 @@ export interface TurnDone extends EventBase {
   cost_eur: number;
 }
 
+/** A tutorial video for chosen products, from a brand or a creator (spec 006). */
+export interface TutorialView {
+  id: string;
+  product_ids: string[];
+  brand: string;
+  platform: "tiktok" | "youtube" | "instagram";
+  creator: string;
+  creator_kind: "brand" | "creator";
+  title: string;
+  url: string;
+  language: Language;
+}
+
+export interface Coupon {
+  code: string;
+  label: string;
+  /** ISO date. */
+  valid_until: string;
+}
+
+export interface TutorialsShown extends EventBase {
+  type: "tutorials.shown";
+  tutorials: TutorialView[];
+}
+
+/** The email recap, shown as a preview; nothing is sent (spec 006). */
+export interface RecapReady extends EventBase {
+  type: "recap.ready";
+  email_masked: string;
+  subject: string;
+  body: string;
+  coupon: Coupon;
+}
+
 export interface ErrorEvent extends EventBase {
   type: "error";
   message: string;
@@ -180,6 +218,8 @@ export type StreamEvent =
   | ProductsShown
   | BasketUpdated
   | ProfileUpdated
+  | TutorialsShown
+  | RecapReady
   | TurnDone
   | ErrorEvent;
 
@@ -198,6 +238,8 @@ const EVENT_TYPES = {
   "products.shown": true,
   "basket.updated": true,
   "profile.updated": true,
+  "tutorials.shown": true,
+  "recap.ready": true,
   "turn.done": true,
   error: true,
 } as const satisfies Record<StreamEvent["type"], true>;

@@ -119,8 +119,10 @@ async def run_turn(
                         line=agent.tool_fillers[call.name],
                     )
                 args = _parse_args(call.arguments)
+                tool = agent.tool(call.name)
+                public = tool.public_args(args) if tool and tool.public_args else args
                 yield ToolStarted(
-                    turn_id=turn_id, t_ms=ms(), call_id=call.id, name=call.name, args=args
+                    turn_id=turn_id, t_ms=ms(), call_id=call.id, name=call.name, args=public
                 )
                 tool_started = clock()
                 result, ok = await _execute(agent.tool(call.name), session, call, args)

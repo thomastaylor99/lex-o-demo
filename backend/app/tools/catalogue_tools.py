@@ -2,14 +2,18 @@
 
 import json
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.catalogue.models import Category, Concern, SkinType, TexturePreference
+from app.catalogue.fit import fit_sentence, search_profile
+from app.catalogue.models import Category, Concern, Product, SkinType, TexturePreference
 from app.catalogue.ranking import SearchQuery, search
 from app.catalogue.store import Catalogue
 from app.conversation.agent import Tool, ToolResult, UiEvent
 from app.conversation.session import Session
+from app.lang import Language
+from app.profile.models import BeautyProfile
 from app.tools.views import product_view
 
 
@@ -63,7 +67,7 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
             spf_needed=args.spf_needed,
         )
         outcome = search(catalogue.all(), query, session.language)
-        views = [product_view(product, session.language) for product in outcome.products]
+        views = _views(outcome.products, search_profile(session.profile, query), session.language)
 
         session.flags["last_search_turn"] = session.turn_index
         shown_ids = session.flags.setdefault("shown_ids", [])
@@ -94,7 +98,7 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
             if (partner := catalogue.get(partner_id)) is not None
             and partner.has_language(session.language)
         ]
-        views = [product_view(partner, session.language) for partner in paired]
+        views = _views(paired, session.profile, session.language)
 
         shown_ids = session.flags.setdefault("shown_ids", [])
         for partner in paired:
@@ -138,3 +142,8 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
         handler=handle_get_routine,
     )
     return search_tool, routine_tool
+
+
+def _views(products: list[Product], profile: BeautyProfile, lang: Language) -> list[dict[str, Any]]:
+    """Product views with the one-sentence reason each suits this visitor (spec 006)."""
+    return [product_view(p, lang, fit=fit_sentence(p, profile, lang)) for p in products]

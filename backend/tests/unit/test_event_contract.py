@@ -22,6 +22,7 @@ from app.conversation.events import (
     ModelCallTiming,
     ProductsShown,
     ProfileUpdated,
+    RecapReady,
     TextDelta,
     ToolFinished,
     ToolStarted,
@@ -29,6 +30,7 @@ from app.conversation.events import (
     TurnDone,
     TurnStarted,
     TurnTimings,
+    TutorialsShown,
     to_sse,
 )
 from app.profile.models import BeautyProfile
@@ -66,7 +68,8 @@ def examples() -> list[AnyEvent]:
         ],
         total_ms=3655,
     )
-    shown = [product_view(pick, "en"), product_view(alternative, "en")]
+    reason = "Made for dry, reactive skin, in the rich texture you like, and within your budget."
+    shown = [product_view(pick, "en", fit=reason), product_view(alternative, "en")]
     return [
         TurnStarted(turn_id=TURN, t_ms=0, agent="concierge", language="en"),
         LinePlay(turn_id=TURN, t_ms=705, agent="concierge", line="handover_skincare"),
@@ -79,6 +82,31 @@ def examples() -> list[AnyEvent]:
         ProductsShown(turn_id=TURN, t_ms=1693, products=shown, best_match_id=pick.id),
         BasketUpdated(turn_id=TURN, t_ms=2410, **basket.view()),
         ProfileUpdated(turn_id=TURN, t_ms=3650, profile=profile.model_dump(mode="json")),
+        TutorialsShown(
+            turn_id=TURN,
+            t_ms=3651,
+            tutorials=[
+                {
+                    "id": "lrp-toleriane-official-tiktok",
+                    "product_ids": ["fx-rich-dry"],
+                    "brand": "La Roche-Posay",
+                    "platform": "tiktok",
+                    "creator": "@larocheposay",
+                    "creator_kind": "brand",
+                    "title": "How to apply your moisturiser",
+                    "url": "https://www.tiktok.com/@larocheposay/video/1",
+                    "language": "en",
+                }
+            ],
+        ),
+        RecapReady(
+            turn_id=TURN,
+            t_ms=3651,
+            email_masked="c***@example.com",
+            subject="Your skincare routine, Camille",
+            body="Hello Camille, here is the routine we chose together.",
+            coupon={"code": "LEX-4F7K", "label": "Example offer", "valid_until": "2026-11-07"},
+        ),
         ErrorEvent(turn_id=TURN, t_ms=3652, message="The model did not answer.", recoverable=True),
         TurnDone(turn_id=TURN, t_ms=3655, timings=timings, cost_eur=0.004213),
     ]

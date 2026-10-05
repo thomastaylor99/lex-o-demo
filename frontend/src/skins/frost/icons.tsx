@@ -80,3 +80,14 @@ export function DropIcon({ size = 26 }: { size?: number }) {
     </svg>
   );
 }
+
+/** Opens in a new tab: a square with an arrow leaving it. */
+export function ExternalIcon({ size = 16 }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-9 9" />
+      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+    </Icon>
+  );
+}

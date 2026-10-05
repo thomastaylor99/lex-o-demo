@@ -82,7 +82,8 @@
             "id": "fx-rich-dry-note-en",
             "text": "Fixture note: apply morning and evening on fixture skin."
           }
-        ]
+        ],
+        "fit": "Made for dry, reactive skin, in the rich texture you like, and within your budget."
       },
       {
         "id": "fx-light-dry",
@@ -108,7 +109,8 @@
             "id": "fx-light-dry-note-en",
             "text": "Fixture note: smooth onto fixture skin each morning."
           }
-        ]
+        ],
+        "fit": null
       }
     ],
     "best_match_id": "fx-rich-dry"
@@ -147,7 +149,41 @@
       "hair_type": null,
       "hair_concerns": [],
       "language": "en",
-      "consent": "pending"
+      "consent": "pending",
+      "email": null
+    }
+  },
+  {
+    "turn_id": "8c1f04d2a9e3",
+    "t_ms": 3651,
+    "type": "tutorials.shown",
+    "tutorials": [
+      {
+        "id": "lrp-toleriane-official-tiktok",
+        "product_ids": [
+          "fx-rich-dry"
+        ],
+        "brand": "La Roche-Posay",
+        "platform": "tiktok",
+        "creator": "@larocheposay",
+        "creator_kind": "brand",
+        "title": "How to apply your moisturiser",
+        "url": "https://www.tiktok.com/@larocheposay/video/1",
+        "language": "en"
+      }
+    ]
+  },
+  {
+    "turn_id": "8c1f04d2a9e3",
+    "t_ms": 3651,
+    "type": "recap.ready",
+    "email_masked": "c***@example.com",
+    "subject": "Your skincare routine, Camille",
+    "body": "Hello Camille, here is the routine we chose together.",
+    "coupon": {
+      "code": "LEX-4F7K",
+      "label": "Example offer",
+      "valid_until": "2026-11-07"
     }
   },
   {

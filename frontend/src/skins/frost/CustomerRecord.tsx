@@ -15,7 +15,7 @@ interface Field {
   raw: string | null;
 }
 
-/** The nine record fields in the order a beauty adviser would read them. */
+/** The ten record fields in the order a beauty adviser would read them. The email arrives masked. */
 function fields(p: BeautyProfile | null, language: Language, l: Labels): Field[] {
   const word = (key: string | null | undefined) => profileWord(key, language);
   const list = (keys: (string | null | undefined)[]) => keys.map(word).filter(Boolean).join(", ") || null;
@@ -27,6 +27,7 @@ function fields(p: BeautyProfile | null, language: Language, l: Labels): Field[]
   });
   return [
     field("first_name", l.rowFirstName, p?.first_name, p?.first_name || null),
+    field("email", l.rowEmail, p?.email, p?.email || null),
     field("language", l.rowLanguage, p?.language, p?.language ? l.languageName[p.language] : null),
     field("skin_type", l.rowSkinType, p?.skin_type, word(p?.skin_type)),
     field("concerns", l.rowConcerns, p?.concerns, list(p?.concerns ?? [])),

@@ -1,6 +1,6 @@
 # Decision log
 
-> Source: decisions Thomas took or approved while building the demo, checked against the files each entry points to. Started 2026-10-04, last updated 2026-10-04 (evening).
+> Source: decisions Thomas took or approved while building the demo, checked against the files each entry points to. Started 2026-10-04, last updated 2026-10-05.
 
 Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/spec.md`, and so on.
 
@@ -44,6 +44,8 @@ Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/s
 
 - 2026-10-04: When the visitor names a skin condition or asks for a cure, a note in the turn context tells the expert to say it can't give medical advice and to name a pharmacist or a dermatologist. The prompt rule alone was ignored in 2 of 3 golden runs; with the note, 3 of 3 passed (`backend/app/agents/skincare.py`, `MEDICAL`).
 
+- 2026-10-05: When speech to text closes a sentence while the visitor is still talking, the engine keeps listening on a new socket and answers after the visitor's own silence, so nobody is cut off mid-sentence (Thomas; `frontend/src/lib/voice-engine.ts`).
+
 ## Profile
 
 - 2026-10-04: A concern is recorded only when the visitor names it: asking for a moisturiser does not mean hydration, and tightness sets the skin type. Fixed after "hydration" appeared in Thomas's record without him mentioning it (`backend/app/profile/extractor.py`).
@@ -57,10 +59,14 @@ Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/s
 - 2026-10-04: Look. The ivory first version was rejected. Round one (Noir, Atelier, Studio, Clinic, Caption): Thomas liked Studio's novelty with its black and amber, and Clinic's clean cards and structured profile; he disliked background grids, square shapes, monospace or quirky fonts, a coloured bar on the side of message cards, and beige. Round two (Ember, Onyx, Lumen, Frost, Duo): the final skin takes Frost's look (white, black pills, a black capsule with a yellow waveform, Geist, yellow #FFD23F) with text about 20% smaller, Lumen's agent name with a small dot and its relay steps ("Welcome > Skincare"), and a welcome screen before the conversation. The templates stay under `/templates` (`frontend/src/templates/`).
 - 2026-10-04: The live screen is a skin that takes the agent as its only prop (`ScreenAgent`), so another template can become a skin later. The first, `frontend/src/skins/frost/`, is being built.
 
+- 2026-10-05: The journey adds three moments (spec 006, branch `feat/journey`): a one-line reason why each product suits the visitor, built from catalogue facts; tutorials from the brands and creators, a bank of real videos checked through oEmbed and approved by Thomas; and an email recap with an example in-store coupon, shown as a preview and never sent.
+- 2026-10-05: `send_recap` reads the address back and writes only after the same address is confirmed in a later turn; the model had skipped the read-back. The address is masked everywhere it leaves the tool (`backend/app/tools/recap_tools.py`).
+- 2026-10-05: A context note triggers `show_tutorials` once the routine is in the basket, as with the medical note: the prompt step alone was skipped in the golden run (`backend/app/agents/skincare.py`).
+
 ## Cost
 
 - 2026-10-04: The backend meters each session (LLM tokens per model, STT seconds from audio bytes, TTS characters per attempt), prices it in euros, and reports the total in `turn.done` and `GET /sessions/{id}/usage`. Built and checked live: a first turn costs about €0.004 with audio (`backend/app/usage/`, spec 001, Running cost).
-- 2026-10-04: Prices from mistral.ai/pricing, in euros: small €0.12 in and €0.50 out per million tokens, medium €1.25 and €6.40, TTS €0.01 per 1,000 characters. `voxtral-transcribe-realtime-3` is not on the public list: €0.03 per minute is a placeholder (the listed realtime model is €0.0053) until Thomas confirms (`backend/app/usage/pricing.py`).
+- 2026-10-04: Prices from mistral.ai/pricing, in euros: small €0.12 in and €0.50 out per million tokens, medium €1.25 and €6.40, TTS €0.01 per 1,000 characters. `voxtral-transcribe-realtime-3` is not on the public list; on 2026-10-05 Thomas chose the listed realtime model's €0.0053 per minute over the Decathlon placeholder of €0.03 (`backend/app/usage/pricing.py`).
 
 ## Git
 
@@ -68,11 +74,11 @@ Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/s
 
 ## Open
 
-- The STT price (placeholder €0.03 per minute) and the TTS conversion; the LLM prices come from the public page.
-- When speech-to-text closes an utterance while the visitor is still talking: answer what was heard (current) or keep listening.
+- The TTS euro price (the page shows €0.01 beside $0.016 per 1,000 characters).
 - The two voices.
 - The claims from secondary sources, and the hair oil's 96 h anti-frizz claim (perimeter.md, Risks).
 - The private GitHub repo.
 - The haircare expert (V1, spec 002 extended).
 - Presenter controls and reset between volunteers (spec 005).
 - The camera (spec 004, V2).
+- The tutorial list (`specs/006-journey/tutorials.md`), and whether the email should also be masked in the live transcript.

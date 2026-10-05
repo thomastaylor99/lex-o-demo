@@ -1,0 +1,76 @@
+{
+  "tutorials": [
+    {
+      "id": "fx-rich-brand-tiktok-en",
+      "product_ids": ["fx-rich-dry"],
+      "brand": "Fixture Brand A",
+      "platform": "tiktok",
+      "creator": "@fixturebranda",
+      "creator_kind": "brand",
+      "title": "Fixture: how to apply the rich cream",
+      "url": "https://example.com/tutorials/fx-rich-brand-tiktok-en",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "fx-rich-brand-youtube-fr",
+      "product_ids": ["fx-rich-dry"],
+      "brand": "Fixture Brand A",
+      "platform": "youtube",
+      "creator": "Fixture Brand A France",
+      "creator_kind": "brand",
+      "title": "Fixture : appliquer la crème riche",
+      "url": "https://example.com/tutorials/fx-rich-brand-youtube-fr",
+      "language": "fr",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "fx-rich-creator-youtube-en",
+      "product_ids": ["fx-rich-dry"],
+      "brand": "Fixture Brand A",
+      "platform": "youtube",
+      "creator": "Fixture Creator",
+      "creator_kind": "creator",
+      "title": "Fixture: my evening routine with the rich cream",
+      "url": "https://example.com/tutorials/fx-rich-creator-youtube-en",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "fx-cleanser-brand-tiktok-en",
+      "product_ids": ["fx-cleanser"],
+      "brand": "Fixture Brand A",
+      "platform": "tiktok",
+      "creator": "@fixturebranda",
+      "creator_kind": "brand",
+      "title": "Fixture: how to use the gel cleanser",
+      "url": "https://example.com/tutorials/fx-cleanser-brand-tiktok-en",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "fx-routine-creator-instagram-en",
+      "product_ids": ["fx-rich-dry", "fx-cleanser"],
+      "brand": "Fixture Brand A",
+      "platform": "instagram",
+      "creator": "@fixturecreator",
+      "creator_kind": "creator",
+      "title": "Fixture: cleanser then cream",
+      "url": "https://example.com/tutorials/fx-routine-creator-instagram-en",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "fx-hair-creator-tiktok-fr",
+      "product_ids": ["fx-hair-dry"],
+      "brand": "Fixture Brand B",
+      "platform": "tiktok",
+      "creator": "@createurfixture",
+      "creator_kind": "creator",
+      "title": "Fixture : le masque sur cheveux secs",
+      "url": "https://example.com/tutorials/fx-hair-creator-tiktok-fr",
+      "language": "fr",
+      "verified_on": "2026-10-05"
+    }
+  ]
+}

@@ -59,6 +59,7 @@ def test_product_view_has_the_documented_fields_and_no_scores():
                 "text": "Fixture note: apply morning and evening on fixture skin.",
             }
         ],
+        "fit": None,
     }
     # the view feeds json.dumps directly: no non-JSON-native types (HttpUrl, enums as objects, ...)
     json.dumps(view, ensure_ascii=False)
@@ -77,7 +78,7 @@ def test_product_view_follows_lang():
 # ---------------------------------------------------------------- build_tools
 
 
-def test_build_tools_returns_the_five_tools_keyed_by_name():
+def test_build_tools_returns_the_seven_tools_keyed_by_name():
     tools = build_tools(_catalogue())
 
     assert set(tools) == {
@@ -86,6 +87,8 @@ def test_build_tools_returns_the_five_tools_keyed_by_name():
         "get_routine",
         "add_to_basket",
         "save_profile",
+        "show_tutorials",
+        "send_recap",
     }
 
 

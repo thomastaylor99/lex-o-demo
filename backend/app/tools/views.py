@@ -6,8 +6,9 @@ from app.catalogue.models import Product
 from app.lang import Language
 
 
-def product_view(product: Product, lang: Language) -> dict[str, Any]:
-    """The same view feeds the model's tool results and the `products.shown` UI event. No scores."""
+def product_view(product: Product, lang: Language, fit: str | None = None) -> dict[str, Any]:
+    """The same view feeds the model's tool results and the `products.shown` UI event. No scores.
+    `fit` is the one-sentence reason this product suits the visitor (spec 006), built from facts."""
     return {
         "id": product.id,
         "brand": product.brand,
@@ -23,4 +24,5 @@ def product_view(product: Product, lang: Language) -> dict[str, Any]:
         "url": str(product.url.get(lang)),
         "claims": [{"id": claim.id, "text": claim.text} for claim in product.claims_in(lang)],
         "usage_notes": [{"id": note.id, "text": note.text} for note in product.notes_in(lang)],
+        "fit": fit,
     }

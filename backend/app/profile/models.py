@@ -52,6 +52,7 @@ class ProfileUpdate(BaseModel):
 class BeautyProfile(ProfileUpdate):
     language: Language | None = None
     consent: Consent = Consent.PENDING
+    email: str | None = None  # masked (c***@gmail.com); set by send_recap, never by extraction
 
 
 def merge(profile: BeautyProfile, update: ProfileUpdate) -> BeautyProfile:

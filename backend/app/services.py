@@ -77,7 +77,7 @@ def build_services(settings: Settings, client: Mistral) -> Services:
     return Services(
         settings=settings,
         catalogue=catalogue,
-        agents=build_agents(settings, build_tools(catalogue)),
+        agents=build_agents(settings, build_tools(catalogue, client, settings.recap_model)),
         sessions=SessionStore(first_agent=FIRST_AGENT, ttl_s=settings.session_ttl_s),
         streamer=MistralStreamer(
             client,

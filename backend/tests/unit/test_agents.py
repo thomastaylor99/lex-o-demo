@@ -135,7 +135,7 @@ def test_skincare_identity():
     assert skincare.transfer_targets == ()
 
 
-def test_skincare_has_the_four_expert_tools_in_order():
+def test_skincare_has_the_six_expert_tools_in_order():
     skincare = build_skincare(MODEL, _tools())
 
     assert [tool.name for tool in skincare.tools] == [
@@ -143,6 +143,8 @@ def test_skincare_has_the_four_expert_tools_in_order():
         "get_routine",
         "add_to_basket",
         "save_profile",
+        "show_tutorials",
+        "send_recap",
     ]
 
 
@@ -153,19 +155,20 @@ def test_skincare_instructions_mention_each_of_its_tools():
         assert tool_name in skincare.instructions
 
 
-def test_skincare_tool_fillers_point_at_the_search_filler_line():
+def test_skincare_tool_fillers_point_at_the_search_and_recap_filler_lines():
     skincare = build_skincare(MODEL, _tools())
 
     assert skincare.tool_fillers == {
         "search_products": "filler_search",
         "get_routine": "filler_search",
+        "send_recap": "filler_recap",
     }
 
 
-def test_skincare_has_exactly_its_filler_line():
+def test_skincare_has_exactly_its_filler_lines():
     skincare = build_skincare(MODEL, _tools())
 
-    assert set(skincare.lines) == {"filler_search"}
+    assert set(skincare.lines) == {"filler_search", "filler_recap"}
 
 
 def test_skincare_fixed_line_matches_the_approved_copy():
@@ -293,3 +296,18 @@ def test_build_agents_returns_both_ids_with_the_settings_model():
 
 def test_first_agent_is_concierge():
     assert FIRST_AGENT == "concierge"
+
+
+def test_skincare_context_asks_for_tutorials_once_the_routine_is_in_the_basket():
+    catalogue = Catalogue.load(CATALOGUE_PATH)
+    skincare = build_skincare(MODEL, _tools())
+    session = _session()
+    products = catalogue.all()[:2]
+    session.basket.add(products[0], "en")
+    assert "show_tutorials" not in skincare.context_block(session)
+
+    session.basket.add(products[1], "en")
+    assert "call show_tutorials now" in skincare.context_block(session)
+
+    session.flags["shown_tutorials"] = [{"id": "t1"}]
+    assert "show_tutorials" not in skincare.context_block(session)

@@ -15,6 +15,7 @@ from app.conversation.events import (
     ModelCallTiming,
     ProductsShown,
     ProfileUpdated,
+    RecapReady,
     TextDelta,
     ToolFinished,
     ToolStarted,
@@ -22,6 +23,7 @@ from app.conversation.events import (
     TurnDone,
     TurnStarted,
     TurnTimings,
+    TutorialsShown,
     to_sse,
 )
 
@@ -39,6 +41,15 @@ ALL_EVENTS = [
     ProductsShown(turn_id="t1", t_ms=60, products=[{"id": "p1"}], best_match_id="p1"),
     BasketUpdated(turn_id="t1", t_ms=70, items=[{"id": "p1", "qty": 1}], total_eur=24.9),
     ProfileUpdated(turn_id="t1", t_ms=80, profile={"skin_type": "dry"}),
+    TutorialsShown(turn_id="t1", t_ms=82, tutorials=[{"id": "v1", "platform": "youtube"}]),
+    RecapReady(
+        turn_id="t1",
+        t_ms=84,
+        email_masked="c***@example.com",
+        subject="Your routine",
+        body="Hello Camille.",
+        coupon={"code": "LEX-4F7K", "label": "Example offer", "valid_until": "2026-11-07"},
+    ),
     TurnDone(
         turn_id="t1",
         t_ms=90,

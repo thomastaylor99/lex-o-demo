@@ -1,6 +1,7 @@
 """The claims judge (spec 002, context/claims-policy.md): a second model reads every reply, one
 verdict per sentence, against the approved claims and usage notes, in the reply's language, of
-the products the conversation showed. Breaches come back as lines for the assertion message.
+the products the conversation showed. The email recap (spec 006) is read the same way. Breaches
+come back as lines for the assertion message.
 """
 
 import json
@@ -18,9 +19,12 @@ from tests.golden.live import Turn
 PROMPT = """\
 You review the spoken replies of an AI beauty adviser who works for L'Oréal Groupe (its brands
 here: {brands}). Split the replies into sentences and give one verdict per sentence:
-- states_benefit: true when the sentence says what a product does for skin or hair: an effect,
-  a result, an efficacy. Suitability facts (skin types, texture, SPF, fragrance-free, size,
-  price), questions and remarks about the visitor's skin are not benefits.
+- states_benefit: true when the sentence says what a specific product (named, shown or just
+  recommended) does for skin or hair: an effect, a result, an efficacy. A sentence about what the
+  visitor is looking for or a general aim, with no product in it ("let's find a cream that
+  keeps your skin comfortable"), states no benefit. Suitability facts (skin types, texture,
+  SPF, fragrance-free, size, price), questions and remarks about the visitor's skin are not
+  benefits.
 - claim_id: the id of the approved claim that says the same thing, or null.
 - usage_advice: true when the sentence says how, when or with what to use a product, including
   whether it can be combined with another product or ingredient.
@@ -59,16 +63,29 @@ class Judge:
     def breaches(self, turns: list[Turn], *, usage: bool = False) -> list[str]:
         """Sentences that break the claims policy. With `usage`, usage advice must also match a
         usage note of a shown product."""
-        products = self._shown(turns)
         replies: dict[Language, list[str]] = defaultdict(list)
         for turn in turns:
             if text := turn.reply().strip():
                 replies[turn.language].append(text)
+        return self._breaches(replies, self._shown(turns), usage)
+
+    def recap_breaches(self, turns: list[Turn]) -> list[str]:
+        """The same check over each email recap (spec 006): its subject and body, in the language
+        of the turn that wrote it, against the products the conversation showed."""
+        recaps: dict[Language, list[str]] = defaultdict(list)
+        for turn in turns:
+            for recap in turn.of("recap.ready"):
+                recaps[turn.language].append(f"{recap['subject']}\n\n{recap['body']}")
+        return self._breaches(recaps, self._shown(turns), usage=False)
+
+    def _breaches(
+        self, texts: dict[Language, list[str]], products: list[Product], usage: bool
+    ) -> list[str]:
         found: list[str] = []
-        for language, texts in replies.items():
+        for language, replies in texts.items():
             claims = {c.id: c.text for p in products for c in p.claims_in(language)}
             notes = {n.id: n.text for p in products for n in p.notes_in(language)}
-            for verdict in self._judge(texts, claims, notes):
+            for verdict in self._judge(replies, claims, notes):
                 problems = _problems(verdict, claims, notes, usage)
                 if problems:
                     found.append(f"[{language}] {verdict.sentence!r}: {', '.join(problems)}")

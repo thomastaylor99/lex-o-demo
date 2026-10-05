@@ -18,6 +18,8 @@ const TYPES = {
   "products.shown": true,
   "basket.updated": true,
   "profile.updated": true,
+  "tutorials.shown": true,
+  "recap.ready": true,
   "turn.done": true,
   error: true,
 } satisfies Record<StreamEvent["type"], true>;
@@ -81,6 +83,19 @@ function expectReadable(event: StreamEvent): void {
     case "profile.updated":
       expect(["pending", "given", "declined"]).toContain(event.profile.consent);
       expect(Array.isArray(event.profile.concerns)).toBe(true);
+      break;
+    case "tutorials.shown":
+      for (const t of event.tutorials) {
+        expect([typeof t.id, typeof t.creator, typeof t.title, typeof t.url]).toEqual(["string", "string", "string", "string"]);
+        expect(["tiktok", "youtube", "instagram"]).toContain(t.platform);
+        expect(["brand", "creator"]).toContain(t.creator_kind);
+      }
+      break;
+    case "recap.ready":
+      expect([typeof event.email_masked, typeof event.subject, typeof event.body]).toEqual(["string", "string", "string"]);
+      expect([typeof event.coupon.code, typeof event.coupon.label, typeof event.coupon.valid_until]).toEqual(
+        ["string", "string", "string"],
+      );
       break;
     case "turn.done":
       expect(typeof event.timings.total_ms).toBe("number");

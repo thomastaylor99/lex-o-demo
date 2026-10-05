@@ -2,7 +2,7 @@ import { formatPrice, labels } from "@/components/i18n";
 import type { Language, ProductView } from "@/lib/events";
 
 import { Packshot } from "./Packshot";
-import { CLAMP_2, INK, MUTED, ON_DARK_MUTED, SURFACE, YELLOW, fs } from "./theme";
+import { CLAMP_2, INK, MUTED, ON_DARK_MUTED, SURFACE, TEXT_2, YELLOW, fs } from "./theme";
 
 const CHIP = { position: "absolute", top: 10, left: 10, borderRadius: 999, padding: "5px 11px", fontSize: fs(14), fontWeight: 600 } as const;
 
@@ -11,7 +11,10 @@ function quote(text: string, language: Language): string {
   return language === "fr" ? `«\u00a0${text}\u00a0»` : `“${text}”`;
 }
 
-/** One product: packshot on a white well, brand, name, the first approved claim, fragrance-free mark and price. The top pick turns black. */
+/**
+ * One product: packshot on a white well, brand, name, why it suits this visitor ("For you"), the
+ * first approved claim in a quieter voice, fragrance-free mark and price. The top pick turns black.
+ */
 export function ProductCard(props: { product: ProductView; top: boolean; step: string | null; language: Language; delayMs: number }) {
   const { product, top, step, language, delayMs } = props;
   const l = labels(language);
@@ -22,7 +25,7 @@ export function ProductCard(props: { product: ProductView; top: boolean; step: s
       className="fr-in"
       style={{
         animationDelay: `${delayMs}ms`,
-        flex: "0 0 240px",
+        flex: "0 0 264px",
         display: "flex",
         flexDirection: "column",
         borderRadius: 20,
@@ -40,8 +43,19 @@ export function ProductCard(props: { product: ProductView; top: boolean; step: s
       <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "12px 6px 4px" }}>
         <p style={{ fontSize: fs(15), color: top ? ON_DARK_MUTED : MUTED }}>{product.brand}</p>
         <h4 style={{ ...CLAMP_2, fontSize: fs(20), fontWeight: 600, lineHeight: 1.25, letterSpacing: "-0.01em", marginTop: 2 }}>{product.name}</h4>
+        {product.fit && (
+          <div style={{ marginTop: 10 }}>
+            <p style={{ display: "flex", alignItems: "center", gap: 7, fontSize: fs(15), fontWeight: 600, color: top ? "#fff" : INK }}>
+              <span aria-hidden style={{ flex: "none", width: 7, height: 7, borderRadius: 999, background: YELLOW }} />
+              {l.forYou}
+            </p>
+            <p style={{ ...CLAMP_2, marginTop: 3, fontSize: fs(17), lineHeight: 1.4, color: top ? "#D6D9DE" : TEXT_2 }}>{product.fit}</p>
+          </div>
+        )}
         {claim && (
-          <p style={{ ...CLAMP_2, fontSize: fs(16), lineHeight: 1.4, color: top ? "#D6D9DE" : "#4A4F57", marginTop: 6 }}>{quote(claim, language)}</p>
+          <p style={{ ...CLAMP_2, fontSize: fs(16), lineHeight: 1.4, color: top ? ON_DARK_MUTED : MUTED, marginTop: product.fit ? 8 : 6 }}>
+            {quote(claim, language)}
+          </p>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 12 }}>
           {product.fragrance_free && (

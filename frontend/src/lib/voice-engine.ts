@@ -68,6 +68,8 @@ export function initialSnapshot(mode: MicMode = "auto"): Snapshot {
     agents: [],
     transcript: [],
     productGroups: [],
+    tutorialGroups: [],
+    recap: null,
     basket: { items: [], total_eur: 0 },
     profile: null,
     lastReplyMs: null,
@@ -215,21 +217,23 @@ export class VoiceEngine {
     }
   }
 
-  private beginUtterance(now: number): void {
-    this.utteranceStartedAt = now;
+  /** `carry` continues a visitor line the server closed too early: same line, same start time. */
+  private beginUtterance(now: number, carry?: { id: string; text: string; startedAt: number }): void {
+    this.utteranceStartedAt = carry?.startedAt ?? now;
     const gen = ++this.utteranceGen;
     const current = () => gen === this.utteranceGen;
-    const id = this.nextId();
+    const id = carry?.id ?? this.nextId();
+    const withCarry = (rest: string) => `${carry?.text ?? ""} ${rest}`.trim();
     this.visitorEntryId = id;
     let text = "";
     this.utterance = new Utterance(this.snap.language, this.sessionId, {
       onDelta: (delta) => {
         if (!current()) return;
         text += delta;
-        this.upsertEntry({ id, kind: "visitor", agent: null, text: text.trim(), final: false });
+        this.upsertEntry({ id, kind: "visitor", agent: null, text: withCarry(text), final: false });
       },
       onDone: (finalText, language) => {
-        if (current()) this.onTranscribed(id, finalText, language);
+        if (current()) this.onTranscribed(id, withCarry(finalText), language);
       },
       onError: (error) => {
         if (current()) this.onListeningFailed(id, error);
@@ -272,10 +276,15 @@ export class VoiceEngine {
 
   private onTranscribed(entryId: string, text: string, language: Language): void {
     if (this.utterance) {
-      // The server ended the utterance before the visitor did: answer what it heard.
-      this.transcribing = this.utterance;
+      // The server closed the sentence while the visitor is still speaking (Thomas, 2026-10-05:
+      // keep listening). Show what it heard, carry on with a new socket on the same line, and
+      // answer the whole sentence after the visitor's own silence.
+      const heard = text.trim();
+      this.utterance.close();
       this.utterance = null;
-      this.openTurn(performance.now());
+      this.upsertEntry({ id: entryId, kind: "visitor", agent: null, text: heard, final: false });
+      this.beginUtterance(performance.now(), { id: entryId, text: heard, startedAt: this.utteranceStartedAt });
+      return;
     }
     this.settleUtterance();
     const turn = this.turn;
@@ -430,6 +439,18 @@ export class VoiceEngine {
         break;
       case "profile.updated":
         this.update({ profile: event.profile });
+        break;
+      case "tutorials.shown": {
+        const groupId = `${event.turn_id}-t${this.snap.tutorialGroups.length}`;
+        this.update({ tutorialGroups: [...this.snap.tutorialGroups, { id: groupId, tutorials: event.tutorials }] });
+        this.appendEntry({ id: this.nextId(), kind: "tutorials", agent: this.currentAgent, text: "", final: true, groupId });
+        break;
+      }
+      case "recap.ready":
+        this.update({
+          recap: { emailMasked: event.email_masked, subject: event.subject, body: event.body, coupon: event.coupon },
+        });
+        this.appendEntry({ id: this.nextId(), kind: "recap", agent: this.currentAgent, text: "", final: true });
         break;
       case "turn.done":
         this.flushSentences(true);

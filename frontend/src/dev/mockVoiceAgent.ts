@@ -3,18 +3,20 @@
 /**
  * Dev fixture: a scripted golden-path conversation behind the `VoiceAgent` contract, for design
  * work without a backend (`/?mock=1`). Products, prices and claims come from the real catalogue
- * (`backend/app/catalogue/data/products.json`, English).
+ * (`backend/app/catalogue/data/products.json`, English); each "For you" sentence is what
+ * `fit_sentence` gives for the mock profile. The tutorials link to the brands' official accounts.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { MicMode } from "@/lib/api";
-import type { Basket, BeautyProfile, ProductView } from "@/lib/events";
+import type { Basket, BeautyProfile, ProductView, TutorialView } from "@/lib/events";
 import {
   EMPTY_REPLY_STATS,
   replyStats,
   type AgentIdentity,
   type ProductGroup,
+  type Recap,
   type TranscriptEntry,
   type VoiceAgent,
 } from "@/lib/voice-agent";
@@ -49,6 +51,7 @@ const TOLERIANE = product({
   claim:
     "The high tolerance moisturiser effectively repairs and protects skin's barrier while reducing signs of discomfort, including tightness, tingling, dryness and occasional redness.",
   note: "Apply to the face and the neck morning and evening.",
+  fit: "For dry, sensitive skin: the rich texture you like, within your budget.",
 });
 
 const CERAVE_CREAM = product({
@@ -66,6 +69,7 @@ const CERAVE_CREAM = product({
   url: "https://www.cerave.co.uk/skincare/moisturisers/moisturising-cream",
   claim: "Rich cream which helps hydrate & protect the skin's natural barrier",
   note: "Apply liberally as often as needed, or as directed by a physician",
+  fit: "For dry, sensitive skin: the rich texture you like, within your budget.",
 });
 
 const CERAVE_SPF30 = product({
@@ -83,6 +87,7 @@ const CERAVE_SPF30 = product({
   url: "https://www.cerave.co.uk/skincare/moisturisers/am-facial-moisturising-lotion-spf30",
   claim: "Protects against broad spectrum UVA/UVB rays with SPF30, in line with NHS recommendation.",
   note: "Apply liberally to face and neck in the morning.",
+  fit: "For dry, sensitive skin: within your budget.",
 });
 
 const CERAVE_CLEANSER = product({
@@ -100,6 +105,7 @@ const CERAVE_CLEANSER = product({
   url: "https://www.cerave.co.uk/skincare/cleansers/hydrating-cleanser",
   claim: "Gently removes dirt, oil and makeup without leaving skin tight or dry",
   note: "Wet skin with lukewarm water",
+  fit: "For dry, sensitive skin: within your budget.",
 });
 
 const ANTHELIOS = product({
@@ -117,7 +123,62 @@ const ANTHELIOS = product({
   url: "https://www.laroche-posay.co.uk/en_GB/anthelios-uvmune-400-invisible-fluid-spf50-sun-cream-for-sensitive-skin-50ml/LRP_026.html",
   claim: "A very high protection, broad spectrum (SPF 50+)",
   note: "Shake before use.",
+  fit: "For dry, sensitive skin: SPF 50 for daytime, within your budget.",
 });
+
+/** Tutorials for the routine. The brands' official accounts stand in until Thomas approves the video list. */
+const tutorial = (t: Omit<TutorialView, "creator_kind" | "language">): TutorialView => ({ ...t, creator_kind: "brand", language: "en" });
+
+const TUTORIALS: TutorialView[] = [
+  tutorial({
+    id: "cerave-tiktok",
+    product_ids: [CERAVE_CLEANSER.id],
+    brand: "CeraVe",
+    platform: "tiktok",
+    creator: "CeraVe",
+    title: "Skincare tips from the CeraVe team",
+    url: "https://www.tiktok.com/@cerave",
+  }),
+  tutorial({
+    id: "cerave-youtube",
+    product_ids: [CERAVE_CLEANSER.id],
+    brand: "CeraVe",
+    platform: "youtube",
+    creator: "CeraVe",
+    title: "How-to videos on the CeraVe channel",
+    url: "https://www.youtube.com/@CeraVe",
+  }),
+  tutorial({
+    id: "lrp-tiktok",
+    product_ids: [TOLERIANE.id],
+    brand: "La Roche-Posay",
+    platform: "tiktok",
+    creator: "La Roche-Posay",
+    title: "Skincare tips from La Roche-Posay",
+    url: "https://www.tiktok.com/@larocheposay",
+  }),
+  tutorial({
+    id: "lrp-youtube",
+    product_ids: [TOLERIANE.id],
+    brand: "La Roche-Posay",
+    platform: "youtube",
+    creator: "La Roche-Posay",
+    title: "How-to videos on the La Roche-Posay channel",
+    url: "https://www.youtube.com/@LaRochePosayUS",
+  }),
+];
+
+/** The email recap, from the mock facts and the approved claims. Nothing is sent. */
+const RECAP: Recap = {
+  emailMasked: "c***@example.com",
+  subject: "Your skincare routine, Camille",
+  body: [
+    "Hi Camille, thank you for your visit today. You told us your skin feels dry and tight, reddens easily, and that you love rich creams.",
+    "Your routine: cleanse with the CeraVe Hydrating Cleanser, then apply La Roche-Posay Toleriane Sensitive Rich Moisturiser morning and evening. It repairs and protects skin's barrier while reducing signs of discomfort.",
+    "Find more from both brands on TikTok and YouTube, and show the code below in store for your offer.",
+  ].join("\n\n"),
+  coupon: { code: "LEX-7Q2M", label: "Example offer: 10% off this routine in store", valid_until: "2026-11-04" },
+};
 
 const EMPTY_PROFILE: BeautyProfile = {
   language: "en",
@@ -132,6 +193,7 @@ const EMPTY_PROFILE: BeautyProfile = {
   hair_type: null,
   hair_concerns: [],
   consent: "pending",
+  email: null,
 };
 
 const INITIAL: State = {
@@ -143,6 +205,8 @@ const INITIAL: State = {
   agents: AGENTS,
   transcript: [],
   productGroups: [],
+  tutorialGroups: [],
+  recap: null,
   basket: { items: [], total_eur: 0 },
   profile: null,
   lastReplyMs: null,
@@ -151,9 +215,9 @@ const INITIAL: State = {
   error: null,
 };
 
-/** Reply times (ms) and running conversation cost (EUR) after each turn of the script. */
-const REPLY_MS = [450, 600, 520, 640, 580, 610];
-const COST_EUR = [0.004, 0.009, 0.015, 0.021, 0.026, 0.031];
+/** Reply times (ms) and running conversation cost (EUR) after each turn of the script. The recap turn adds a model call. */
+const REPLY_MS = [450, 600, 520, 640, 580, 610, 560, 690];
+const COST_EUR = [0.004, 0.009, 0.015, 0.021, 0.026, 0.031, 0.035, 0.042];
 
 // ------------------------------------------------------------------ script builders
 
@@ -187,6 +251,27 @@ const show = (kind: ProductGroup["kind"], products: ProductView[], bestMatchId: 
     ...s,
     productGroups: [...s.productGroups, { id: groupId, kind, products, bestMatchId }],
     transcript: [...s.transcript, { id: entryId, kind: "products", agent: "skincare", text: "", final: true, groupId }],
+  });
+};
+
+/** A tutorial group, shown as a row of cards in the transcript. */
+const showTutorials = (tutorials: TutorialView[]): Step["apply"] => {
+  const groupId = nextId();
+  const entryId = nextId();
+  return (s) => ({
+    ...s,
+    tutorialGroups: [...s.tutorialGroups, { id: groupId, tutorials }],
+    transcript: [...s.transcript, { id: entryId, kind: "tutorials", agent: "skincare", text: "", final: true, groupId }],
+  });
+};
+
+/** The email recap, shown as a preview card in the transcript. */
+const showRecap = (recap: Recap): Step["apply"] => {
+  const entryId = nextId();
+  return (s) => ({
+    ...s,
+    recap,
+    transcript: [...s.transcript, { id: entryId, kind: "recap", agent: "skincare", text: "", final: true }],
   });
 };
 
@@ -296,13 +381,28 @@ function script(): Step[] {
     { at: 41600, apply: set({ activity: "thinking" }) },
     { at: 42000, apply: addToBasket(CERAVE_CLEANSER) },
     { at: 42100, apply: reply(4) },
-    ...say(42100, "skincare", "Done. Would you like me to save your skin profile and routine for next time?"),
-    ...hear(46000, "Yes, please save it. My name is Camille."),
-    { at: 48400, apply: set({ activity: "thinking" }) },
-    { at: 48800, apply: updateProfile({ first_name: "Camille", routine_size: "minimal", consent: "given" }) },
-    { at: 48900, apply: reply(5) },
-    ...say(48900, "skincare", "Thank you, Camille. Your profile and routine are saved. Enjoy your new ritual."),
-    { at: 53000, apply: set({ activity: "listening" }) },
+    { at: 42300, apply: showTutorials(TUTORIALS) },
+    ...say(
+      42500,
+      "skincare",
+      "Done, your routine is complete. Tutorials from CeraVe and La Roche-Posay are on screen, with a code to scan to watch them on your phone. Would you like me to save your skin profile and routine for next time?",
+    ),
+    ...hear(50000, "Yes, please save it. My name is Camille."),
+    { at: 52200, apply: set({ activity: "thinking" }) },
+    { at: 52600, apply: updateProfile({ first_name: "Camille", routine_size: "minimal", consent: "given" }) },
+    { at: 52700, apply: reply(5) },
+    ...say(52700, "skincare", "Thank you, Camille, your profile and routine are saved. Would you like a recap by email, with an in-store offer?"),
+    ...hear(57400, "Yes, send it to camille dot martin at example dot com."),
+    { at: 60100, apply: set({ activity: "thinking" }) },
+    { at: 60500, apply: reply(6) },
+    ...say(60500, "skincare", "Let me read it back: camille dot martin at example dot com. Is that right?"),
+    ...hear(64400, "Yes, that's right."),
+    { at: 65600, apply: set({ activity: "thinking" }) },
+    { at: 66300, apply: updateProfile({ email: RECAP.emailMasked }) },
+    { at: 66400, apply: showRecap(RECAP) },
+    { at: 66500, apply: reply(7) },
+    ...say(66700, "skincare", "Perfect, Camille, your recap and your in-store offer are on screen."),
+    { at: 70000, apply: set({ activity: "listening" }) },
   ];
 }
 

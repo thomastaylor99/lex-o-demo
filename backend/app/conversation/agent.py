@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 class UiEvent(BaseModel):
     """A browser event produced by a tool or an observer; the loop adds turn_id and t_ms."""
 
-    type: Literal["products.shown", "basket.updated", "profile.updated"]
+    type: Literal[
+        "products.shown", "basket.updated", "profile.updated", "tutorials.shown", "recap.ready"
+    ]
     payload: dict[str, Any]
     # Observer events go out at the end of the turn. When set, `latest` rebuilds the payload
     # then, so a tool that changed the same state mid-turn (consent) is not undone by a snapshot.
@@ -52,6 +54,9 @@ class Tool:
     description: str
     args_model: type[BaseModel]
     handler: ToolHandler
+    # The arguments as the browser may see them in `tool.started` (for example with an email
+    # address masked). None shows them as the model wrote them.
+    public_args: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
     def schema(self) -> dict[str, Any]:
         return {

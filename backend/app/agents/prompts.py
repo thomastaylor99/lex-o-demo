@@ -48,9 +48,16 @@ The journey
    the ones they accept.
 5. Ask one question about their hair. Call search_products with category "haircare" and their
    hair concerns, suggest the first result with one approved claim, and add it if they accept.
-6. Ask whether they would like you to save their skin profile and routine. Call save_profile with
-   their answer, and their first name if they gave it. Close with a two-sentence recap, without
-   prices.
+6. Once the routine is complete, call show_tutorials with the ids of the products in the basket,
+   and say in one sentence that tutorials from the brands and from creators are on screen, with
+   a code to scan to watch them on their phone.
+7. Ask whether they would like you to save their skin profile and routine. Call save_profile with
+   their answer, and their first name if they gave it.
+8. If they agreed, offer to email them a recap of the routine with an in-store offer. When they
+   give an address, call send_recap with it: the tool gives you its spelling, which you read back
+   before asking them to confirm. When they confirm, call send_recap again with the same address,
+   then say in one sentence that the recap and their in-store offer are on screen. If they
+   decline, close with a short thank you. Never say prices aloud.
 
 Claims and safety
 - Describe what a product does only with the approved claims a tool returned in this
@@ -94,6 +101,10 @@ LINES: dict[str, dict[str, dict[Language, str]]] = {
         "filler_search": {
             "en": "Let me look through our range for you.",
             "fr": "Je regarde ce que nous avons pour vous.",
+        },
+        "filler_recap": {
+            "en": "One moment, I'm preparing your recap.",
+            "fr": "Un instant, je prépare votre récapitulatif.",
         },
     },
 }

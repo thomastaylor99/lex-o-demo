@@ -68,6 +68,26 @@ class ProfileUpdated(_Event):
     profile: dict[str, Any]
 
 
+class TutorialsShown(_Event):
+    """Tutorial videos for the chosen products (spec 006): each item has id, product_ids, brand,
+    platform (tiktok, youtube or instagram), creator, creator_kind (brand or creator), title, url,
+    language."""
+
+    type: Literal["tutorials.shown"] = "tutorials.shown"
+    tutorials: list[dict[str, Any]]
+
+
+class RecapReady(_Event):
+    """The email recap of the discovery, shown as a preview (spec 006). Nothing is sent. The
+    coupon has code, label and valid_until (ISO date)."""
+
+    type: Literal["recap.ready"] = "recap.ready"
+    email_masked: str
+    subject: str
+    body: str
+    coupon: dict[str, Any]
+
+
 class ModelCallTiming(BaseModel):
     agent: str
     first_token_ms: int | None
@@ -107,6 +127,8 @@ AnyEvent = (
     | ProductsShown
     | BasketUpdated
     | ProfileUpdated
+    | TutorialsShown
+    | RecapReady
     | TurnDone
     | ErrorEvent
 )

@@ -1,0 +1,257 @@
+{
+  "tutorials": [
+    {
+      "id": "lrp-toleriane-sensitive-riche-yt-sonia-sami",
+      "product_ids": [
+        "lrp-toleriane-sensitive-riche"
+      ],
+      "brand": "La Roche-Posay",
+      "platform": "youtube",
+      "creator": "Sonia Sami",
+      "creator_kind": "creator",
+      "title": "La Roche-Posay🌸Sensitive Skin Face Moisturizer, TOLERIANE SENSITIVE Hydrating & Soothing Face Cream",
+      "url": "https://www.youtube.com/watch?v=VpfnmUkmuPk",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "lrp-toleriane-sensitive-riche-yt-disha-patel",
+      "product_ids": [
+        "lrp-toleriane-sensitive-riche"
+      ],
+      "brand": "La Roche-Posay",
+      "platform": "youtube",
+      "creator": "Disha Patel",
+      "creator_kind": "creator",
+      "title": "La Roche Posay Toleriane sensitive Riche #skincare #dryskin #youtubeshorts #sensitiveskin #viral",
+      "url": "https://www.youtube.com/watch?v=qQtfrcnzdQk",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-moisturising-cream-yt-cerave",
+      "product_ids": [
+        "cerave-moisturising-cream"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "CeraVe",
+      "creator_kind": "brand",
+      "title": "How to Use CeraVe Moisturizing Cream",
+      "url": "https://www.youtube.com/watch?v=g9eAEXwCS8s",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-moisturising-cream-tt-drspf",
+      "product_ids": [
+        "cerave-moisturising-cream"
+      ],
+      "brand": "CeraVe",
+      "platform": "tiktok",
+      "creator": "@drspf",
+      "creator_kind": "creator",
+      "title": "#CeraVePartner How a board-certified dermatologist uses @cerave Moisturizing Cream! #ShareSkincare #CeraVe #moisturizer #ceramides #skincare",
+      "url": "https://www.tiktok.com/@drspf/video/7078652245457292590",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-spf30-moisturiser-yt-cerave",
+      "product_ids": [
+        "cerave-spf30-moisturiser"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "CeraVe",
+      "creator_kind": "brand",
+      "title": "How To Use CeraVe AM Facial Moisturizing Lotion with Sunscreen",
+      "url": "https://www.youtube.com/watch?v=409Y-WzUIGA",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-spf30-moisturiser-yt-dr-daniel-sugai",
+      "product_ids": [
+        "cerave-spf30-moisturiser"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "Dr. Daniel Sugai",
+      "creator_kind": "creator",
+      "title": "Dermatologist Reviews: CeraVe AM Facial Moisturizing Lotion",
+      "url": "https://www.youtube.com/watch?v=9AD202P2Bgg",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-hydrating-cleanser-yt-cerave",
+      "product_ids": [
+        "cerave-hydrating-cleanser"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "CeraVe",
+      "creator_kind": "brand",
+      "title": "How To Use CeraVe Hydrating Facial Cleanser",
+      "url": "https://www.youtube.com/watch?v=yptop_8_wqo",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-hydrating-cleanser-yt-laura-ruth",
+      "product_ids": [
+        "cerave-hydrating-cleanser"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "Laura Ruth",
+      "creator_kind": "creator",
+      "title": "CLEANSING LIKE A DERM USING THE CERAVE HYDRATING CLEANSER 🧼🫧🤸🏻‍♀️ #cerave #ceraveskincare",
+      "url": "https://www.youtube.com/watch?v=IFfKIKPu1rI",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-hydrating-cleanser-tt-tom-allison",
+      "product_ids": [
+        "cerave-hydrating-cleanser"
+      ],
+      "brand": "CeraVe",
+      "platform": "tiktok",
+      "creator": "@tom_allison_",
+      "creator_kind": "creator",
+      "title": "Here’s the best way to use CeraVe’s Hydrating Cleanser. 😶‍🌫️ #CeraVe #DevelopedWithDermatologists #Cleansing #HydratingSkincare",
+      "url": "https://www.tiktok.com/@tom_allison_/video/7372635649062554888",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-cleansers-yt-beaute-focus-fr",
+      "product_ids": [
+        "cerave-hydrating-cleanser",
+        "cerave-foaming-cleanser"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "beaute focus",
+      "creator_kind": "creator",
+      "title": "MON AVIS SUR LES NETTOYANTS CERAVE 🧼",
+      "url": "https://www.youtube.com/watch?v=N6BiHJwGOAM",
+      "language": "fr",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "lrp-anthelios-uvmune400-ff-yt-larocheposay-fr",
+      "product_ids": [
+        "lrp-anthelios-uvmune400-ff"
+      ],
+      "brand": "La Roche-Posay",
+      "platform": "youtube",
+      "creator": "La Roche Posay France",
+      "creator_kind": "brand",
+      "title": "Anthelios UVMUNE 400 Fluide invisible SPF50+",
+      "url": "https://www.youtube.com/watch?v=P0RKS2kdKWI",
+      "language": "fr",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "lrp-anthelios-uvmune400-ff-yt-doctor-anne",
+      "product_ids": [
+        "lrp-anthelios-uvmune400-ff"
+      ],
+      "brand": "La Roche-Posay",
+      "platform": "youtube",
+      "creator": "Doctor Anne",
+      "creator_kind": "creator",
+      "title": "La Roche Posay Anthelios Uvmune 400 Invisible Fluid SPF 50 + on oily skin | Doctors Review",
+      "url": "https://www.youtube.com/watch?v=VuL8zrplUE0",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "lrp-anthelios-uvmune400-ff-yt-pibou-beauty",
+      "product_ids": [
+        "lrp-anthelios-uvmune400-ff"
+      ],
+      "brand": "La Roche-Posay",
+      "platform": "youtube",
+      "creator": "Pibou Beauty",
+      "creator_kind": "creator",
+      "title": "MON AVIS SUR LE NOUVEAU FLUIDE UVMUNE 400 DE LA ROCHE POSAY = LA MEILLEURE PROTECTION FACE AUX UVA ?",
+      "url": "https://www.youtube.com/watch?v=Lf_ReQf0SJQ",
+      "language": "fr",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-oil-control-gel-cream-yt-cerave",
+      "product_ids": [
+        "cerave-oil-control-gel-cream"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "CeraVe",
+      "creator_kind": "brand",
+      "title": "How to Use Oil Control Moisturizing Gel Cream",
+      "url": "https://www.youtube.com/watch?v=6JVKpwq6mxo",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "cerave-foaming-cleanser-yt-cerave",
+      "product_ids": [
+        "cerave-foaming-cleanser"
+      ],
+      "brand": "CeraVe",
+      "platform": "youtube",
+      "creator": "CeraVe",
+      "creator_kind": "brand",
+      "title": "How To Use CeraVe Foaming Facial Cleanser",
+      "url": "https://www.youtube.com/watch?v=ebl5LLtuQe4",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "lop-revitalift-clinical-vitc-serum-yt-lorealparis-ca",
+      "product_ids": [
+        "lop-revitalift-clinical-vitc-serum"
+      ],
+      "brand": "L'Oréal Paris",
+      "platform": "youtube",
+      "creator": "L'Oréal Paris Canada",
+      "creator_kind": "brand",
+      "title": "L’Oréal Paris Revitalift 12% Pure Vitamin C Serum",
+      "url": "https://www.youtube.com/watch?v=l7Rzwd5xLIg",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "lop-revitalift-clinical-vitc-serum-yt-raluca-makeup",
+      "product_ids": [
+        "lop-revitalift-clinical-vitc-serum"
+      ],
+      "brand": "L'Oréal Paris",
+      "platform": "youtube",
+      "creator": "raluca.makeup",
+      "creator_kind": "creator",
+      "title": "L’Oreal Revitalift Clinical with vitamin C 🍊 #skincare #lorealparis",
+      "url": "https://www.youtube.com/watch?v=n_oVRkVqvQw",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    },
+    {
+      "id": "lop-elseve-extraordinary-oil-yt-scarlette-reviews",
+      "product_ids": [
+        "lop-elseve-extraordinary-oil"
+      ],
+      "brand": "L'Oréal Paris",
+      "platform": "youtube",
+      "creator": "Scarlette Reviews",
+      "creator_kind": "creator",
+      "title": "1-Minute Demo & Review: L'Oreal Paris Elseve Extraordinary Oil #haircare #haircaretips #hairoil",
+      "url": "https://www.youtube.com/watch?v=bry_A_9sQ3U",
+      "language": "en",
+      "verified_on": "2026-10-05"
+    }
+  ]
+}

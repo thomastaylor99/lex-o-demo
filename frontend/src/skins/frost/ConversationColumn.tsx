@@ -9,7 +9,7 @@ import { Transcript } from "./Transcript";
 
 /**
  * Everything below the header on the left: the capsule with the relay beside it, the transcript
- * with its product carousels, the camera slot, the talk bar.
+ * with its products, tutorials and recap, the camera slot, the talk bar.
  */
 export function ConversationColumn({ agent }: SkinProps) {
   const { agents, activeAgent, activity, status, language } = agent;
@@ -21,7 +21,14 @@ export function ConversationColumn({ agent }: SkinProps) {
         <Relay agents={agents} activeAgent={activeAgent} />
       </div>
       <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 24 }}>
-        <Transcript transcript={agent.transcript} groups={agent.productGroups} agents={agents} language={language} />
+        <Transcript
+          transcript={agent.transcript}
+          groups={agent.productGroups}
+          tutorialGroups={agent.tutorialGroups}
+          recap={agent.recap}
+          agents={agents}
+          language={language}
+        />
         {agent.camera && <CameraPanel language={language} />}
       </div>
       <TalkBar

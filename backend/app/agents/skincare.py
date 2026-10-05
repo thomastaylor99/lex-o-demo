@@ -20,6 +20,10 @@ MEDICAL = re.compile(
     r"|\bcure|\bheal|guéri|soigne",
     re.IGNORECASE,
 )
+TUTORIALS_NOTE = (
+    "The routine is in the basket and no tutorials are on screen yet: call show_tutorials now "
+    "with the ids of the products in the basket, and mention the tutorials in one sentence."
+)
 MEDICAL_NOTE = (
     "The visitor named a skin condition or asked for a cure. Start the reply by saying you can't "
     "give medical advice and that a pharmacist or a dermatologist is the right person to ask, "
@@ -44,9 +48,15 @@ def _context_block(session: Session) -> str:
             f"Visitor profile so far: {json.dumps(profile, ensure_ascii=False)}",
             f"Basket: {json.dumps(session.basket.view(), ensure_ascii=False)}",
             f"Products already shown: {', '.join(shown_ids) or 'none'}",
+            *([TUTORIALS_NOTE] if _tutorials_due(session) else []),
             *([MEDICAL_NOTE] if MEDICAL.search(_latest_visitor_text(session)) else []),
         ]
     )
+
+
+def _tutorials_due(session: Session) -> bool:
+    """A routine (two products or more) is in the basket and its tutorials were never shown."""
+    return len(session.basket.items) >= 2 and not session.flags.get("shown_tutorials")
 
 
 def _latest_visitor_text(session: Session) -> str:
@@ -65,10 +75,16 @@ def build_skincare(model: str, tools: Mapping[str, Tool]) -> AgentConfig:
             tools["get_routine"],
             tools["add_to_basket"],
             tools["save_profile"],
+            tools["show_tutorials"],
+            tools["send_recap"],
         ),
         tool_choice=_tool_choice,
         voices=SKINCARE_VOICES,
         lines=LINES["skincare"],
         context_block=_context_block,
-        tool_fillers={"search_products": "filler_search", "get_routine": "filler_search"},
+        tool_fillers={
+            "search_products": "filler_search",
+            "get_routine": "filler_search",
+            "send_recap": "filler_recap",
+        },
     )
