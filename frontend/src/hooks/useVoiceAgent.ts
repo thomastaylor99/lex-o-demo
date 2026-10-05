@@ -18,6 +18,7 @@ export function useVoiceAgent(): VoiceAgent {
       setMode: (mode: VoiceAgent["mode"]) => engine.setMode(mode),
       pttDown: () => engine.pttDown(),
       pttUp: () => engine.pttUp(),
+      submitEmail: (email: string) => engine.submitEmail(email),
     }),
     [engine],
   );

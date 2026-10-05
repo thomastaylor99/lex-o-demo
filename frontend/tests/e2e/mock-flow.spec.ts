@@ -2,11 +2,12 @@ import { expect, test } from "@playwright/test";
 
 import { formatCost, formatPrice } from "@/components/i18n";
 
-import { begin, cameraSwitch, CONCIERGE, expectOnScreen, l, onScreen, RELAY_STEPS, SKINCARE } from "./screen";
+import { begin, cameraSwitch, CONCIERGE, expectOnScreen, l, onScreen, SKINCARE } from "./screen";
 
 /*
  * The scripted conversation (src/dev/mockVoiceAgent.ts), no backend needed. It starts 0.6 s after
- * Begin and ends about 71 s later; the times below are seconds after Begin.
+ * Begin and waits, about 61 s later, for the visitor to type their address; the times below are
+ * seconds after Begin.
  */
 const TOLERIANE = "Toleriane Sensitive Rich Moisturiser";
 /** Toleriane (14.17) and the Hydrating Cleanser (7.45). */
@@ -21,24 +22,26 @@ test.describe("scripted conversation (/?mock=1)", () => {
     await expect(page.getByText(l.yourSelection, { exact: true })).toHaveCount(0);
     await begin(page);
 
-    // 0.6 s: the concierge welcomes; the skincare expert takes over at 9.6 s
+    // 0.6 s: the concierge welcomes; the skincare expert joins at 10.5 s and speaks at 11.7 s
     await expectOnScreen(page, CONCIERGE, 15_000);
     expect(await onScreen(page, SKINCARE), "the skincare expert is on screen before the handover").toBe(false);
     await expect(page.getByText(l.handsFree, { exact: true })).toBeVisible();
     await expect(page.getByText(l.holdToTalk, { exact: true }).first()).toBeVisible();
     await expect(cameraSwitch(page), "the camera switch needs ?camera=1").toHaveCount(0);
     await expectOnScreen(page, SKINCARE, 30_000);
-    for (const step of RELAY_STEPS) await expectOnScreen(page, step, 5_000);
+    // The handover shows in the conversation, and the label of the line being spoken carries the voice.
+    await expectOnScreen(page, `${SKINCARE} ${l.joined}`, 5_000);
+    await expectOnScreen(page, l.activity.speaking, 5_000);
 
-    // 23.5 s: three recommendations with Toleriane as the top pick, each saying why it suits her;
-    // 34.2 s: the rest of the routine
+    // 25.3 s: three recommendations with Toleriane as the top pick, each saying why it suits her;
+    // 36.0 s: the rest of the routine
     await expect(page.getByText(l.selectedForYou, { exact: true })).toBeVisible({ timeout: 40_000 });
     await expect(page.getByText(TOLERIANE, { exact: true }).first()).toBeVisible();
     await expect(page.getByText(l.topPick, { exact: true })).toBeVisible();
     await expect(page.getByText(l.forYou, { exact: true }).first()).toBeVisible();
     await expect(page.getByText(l.completeRoutine, { exact: true })).toBeVisible({ timeout: 30_000 });
 
-    // 42.6 s: two products in the basket; 42.9 s: four tutorials from the brands' own accounts, each with a code to scan
+    // 44.4 s: two products in the basket; 44.7 s: four tutorials from the brands' own accounts, each with a code to scan
     await expect(page.getByText(l.yourSelection, { exact: true })).toBeVisible();
     await expect(page.getByText(TOTAL, { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(l.total, { exact: true })).toBeVisible();
@@ -53,24 +56,37 @@ test.describe("scripted conversation (/?mock=1)", () => {
       await expect(link).toHaveAttribute("href", /^https:\/\//);
     }
 
-    // 53.2 s: the customer record has the visitor's name and consent
+    // 55.0 s: the customer record has the visitor's name and consent
     await expect(page.getByText(l.customerRecord, { exact: true })).toBeVisible();
     await expect(page.getByText("Camille", { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(l.savedWithConsent, { exact: true })).toBeVisible();
 
-    // 66.9 s: the masked email fills the record's tenth field; 67.0 s: the recap and its example offer
-    await expect(page.getByText(l.recapTitle, { exact: true })).toBeVisible({ timeout: 30_000 });
+    // 55.1 s: the email field takes the focus; a typo is caught on screen, then the typed address
+    // fills the record's tenth field and brings the recap with its example offer, and the field goes
+    const email = page.getByRole("textbox", { name: l.emailLabel });
+    await expect(email).toBeFocused({ timeout: 10_000 });
+    // The browser must not remember the address for the next visitor.
+    await expect(email).toHaveAttribute("autocomplete", "off");
+    await expect(page.getByRole("button", { name: l.emailDismiss })).toBeVisible();
+    await email.fill("camille.martin@example");
+    await email.press("Enter");
+    await expect(page.getByText(l.emailInvalid, { exact: true })).toBeVisible();
+    await email.fill("camille.martin@example.com");
+    await email.press("Enter");
+    await expect(page.getByText(l.recapTitle, { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(email).toHaveCount(0);
     await expect(page.getByText(l.recapPreview, { exact: true })).toBeVisible();
     await expect(page.getByText("Your skincare routine, Camille", { exact: true })).toBeVisible();
     await expect(page.getByText(l.exampleOffer, { exact: true })).toBeVisible();
     await expect(page.getByText("LEX-7Q2M", { exact: true })).toBeVisible();
     await expect(page.getByText(EMAIL, { exact: true })).toHaveCount(2);
-    await expect(page.getByText(`9 ${l.of} 10`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`11 ${l.of} 12`, { exact: true })).toBeVisible();
 
-    // header: reply times, and the running cost after the eighth turn
+    // right quarter: the duration, reply times, and the running cost once the recap is written
+    await expect(page.getByText(l.duration, { exact: true })).toBeVisible();
     await expect(page.getByText(l.avgReply, { exact: true })).toBeVisible();
     await expect(page.getByText(l.p90, { exact: true })).toBeVisible();
-    await expect(page.getByText(formatCost(0.042, "en"), { exact: true })).toBeVisible();
+    await expect(page.getByText(formatCost(0.037, "en"), { exact: true })).toBeVisible();
 
     // Restart shows the welcome screen again, and Begin starts a clean conversation
     await page.getByRole("button", { name: l.restart }).click();

@@ -768,6 +768,7 @@ async def talk(args: argparse.Namespace) -> int:
             settings.tts_first_chunk_timeout_s,
             hedge_after_s=settings.tts_hedge_after_s,
             max_attempts=settings.tts_max_attempts,
+            parallel_start=settings.tts_parallel_start,
         )
         lines = LineCache(synthesizer)
         started = time.perf_counter()

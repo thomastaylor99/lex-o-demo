@@ -3,6 +3,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,10 @@ from app.settings import Settings
 configure_logging()
 
 logger = structlog.get_logger()
+
+# The SDK's own client drops a connection after 5 idle seconds, so each turn opened new ones
+# (40 to 150 ms). Visitors pause longer than that between turns. Timeouts stay the SDK's.
+KEEP_ALIVE = httpx.Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=300)
 
 
 class HealthResponse(BaseModel):
@@ -36,7 +41,10 @@ def create_app(services: Services | None = None) -> FastAPI:
             app.state.services = services
             yield
             return
-        async with Mistral(api_key=settings.mistral_api_key) as client:
+        async with (
+            httpx.AsyncClient(follow_redirects=True, limits=KEEP_ALIVE) as http,
+            Mistral(api_key=settings.mistral_api_key, async_client=http) as client,
+        ):
             built = build_services(settings, client)
             await built.lines.warm(built.agents.values())
             app.state.services = built

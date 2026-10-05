@@ -1,7 +1,9 @@
-"""Email addresses as visitors say them (spec 006): normalise, validate, mask and redact.
+"""Email addresses (spec 006): normalise, validate, mask and redact.
 
-Speech to text and the model may write an address ("camille.martin@example.com") or give it in
-words ("camille dot martin at example dot com", "camille point martin arobase exemple point fr").
+The visitor types their address on screen. One said aloud still reaches the transcript, as an
+address ("camille.martin@example.com") or in words ("camille dot martin at example dot com",
+"camille point martin arobase exemple point fr"), so the log redaction and the expert's context
+note read both forms.
 """
 
 import re
@@ -72,22 +74,3 @@ def _mask_match(match: re.Match[str]) -> str:
 def _without_accents(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text)
     return "".join(char for char in decomposed if not unicodedata.combining(char))
-
-
-# How the expert reads an address back, symbol by symbol.
-_READ_BACK: dict[str, dict[str, str]] = {
-    "en": {".": "dot", "_": "underscore", "-": "dash", "@": "at"},
-    "fr": {".": "point", "_": "tiret du bas", "-": "tiret", "@": "arobase"},
-}
-
-
-def spell_email(address: str, language: str) -> str:
-    """'camille dot martin at example dot com': the address in words, as the expert reads it back.
-    Words keep the log redaction able to mask it (letter by letter would escape it)."""
-    words = _READ_BACK["fr" if language == "fr" else "en"]
-    return " ".join(words.get(char, char) if char in words else char for char in _symbols(address))
-
-
-def _symbols(address: str) -> list[str]:
-    """'camille.martin@example.com' as ['camille', '.', 'martin', '@', 'example', '.', 'com']."""
-    return [part for part in re.split(r"([._@-])", address) if part]

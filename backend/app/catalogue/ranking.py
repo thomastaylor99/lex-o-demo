@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from app.catalogue.models import Category, Concern, Product, SkinType, Texture, TexturePreference
 from app.lang import Language
+from app.profile.models import AgeRange
 
 TEXTURES: dict[TexturePreference, set[Texture]] = {
     TexturePreference.RICH: {Texture.RICH_CREAM, Texture.BALM},
@@ -19,6 +20,16 @@ TEXTURES: dict[TexturePreference, set[Texture]] = {
 }
 
 
+# From 30, the age range tips the ranking towards ageing care, by half what a concern the visitor
+# names counts (Thomas, 2026-10-05).
+AGE_CONCERNS: dict[AgeRange, Concern] = {
+    AgeRange.THIRTIES: Concern.FIRST_SIGNS_OF_AGEING,
+    AgeRange.FORTIES: Concern.FIRMNESS_WRINKLES,
+    AgeRange.FIFTIES: Concern.FIRMNESS_WRINKLES,
+    AgeRange.SIXTY_PLUS: Concern.FIRMNESS_WRINKLES,
+}
+
+
 class SearchQuery(BaseModel):
     category: Category
     skin_type: SkinType | None = None
@@ -28,6 +39,7 @@ class SearchQuery(BaseModel):
     max_price_eur: Decimal | None = None
     fragrance_free: bool | None = None
     spf_needed: bool | None = None
+    age_range: AgeRange | None = None
 
 
 class SearchOutcome(BaseModel):
@@ -69,5 +81,7 @@ def _score(p: Product, q: SearchQuery) -> int:
     score = 3 if q.skin_type is not None and q.skin_type in p.skin_types else 0
     score += 2 * sum(1 for c in q.concerns if c in p.concerns)
     if q.texture_preference is not None and p.texture in TEXTURES[q.texture_preference]:
+        score += 1
+    if q.age_range in AGE_CONCERNS and AGE_CONCERNS[q.age_range] in p.concerns:
         score += 1
     return score

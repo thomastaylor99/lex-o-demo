@@ -36,7 +36,8 @@ here: {brands}). Split the replies into sentences and give one verdict per sente
 A sentence that declines, says it cannot confirm something, or suggests asking a pharmacist or a
 dermatologist states no benefit, gives no usage advice and has no medical wording. A sentence
 that declines to discuss or compare other companies' products, without naming one, has
-competitor_named false.
+competitor_named false. The brands listed above belong to L'Oréal Groupe: naming one of them,
+or a product of theirs the visitor says they use, is never competitor_named.
 """
 
 

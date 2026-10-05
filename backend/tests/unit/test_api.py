@@ -13,6 +13,8 @@ from app.conversation.events import EVENT_ADAPTER, AnyEvent, TurnDone, TurnStart
 from app.conversation.session import SessionStore
 from app.conversation.stream import StreamDelta
 from app.main import create_app
+from app.profile.models import Consent
+from app.recap.service import RecapService
 from app.services import Services
 from app.settings import Settings
 from app.usage.meter import TokenUsage
@@ -134,3 +136,58 @@ def test_a_session_streams_a_turn_with_the_handover_as_sse():
         "line_texts": {"welcome": {"en": "Hello, I am beta.", "fr": "Bonjour, je suis beta."}},
     }
     assert [agent["id"] for agent in config["agents"]] == ["concierge", "beta"]
+
+
+def _services(recap: RecapService | None) -> Services:
+    synthesizer = SilentSynthesizer()
+    return Services(
+        settings=Settings(mistral_api_key=""),
+        catalogue=Catalogue.load(FIXTURE_CATALOGUE),
+        agents=AGENTS,
+        sessions=SessionStore(first_agent=FIRST_AGENT, ttl_s=60),
+        streamer=ScriptedStreamer([]),
+        transcriber=NoTranscriber(),
+        synthesizer=synthesizer,
+        lines=LineCache(synthesizer),
+        recap=recap,
+    )
+
+
+def test_the_typed_address_gets_the_recap_once_the_visitor_has_consented():
+    catalogue = Catalogue.load(FIXTURE_CATALOGUE)
+    services = _services(RecapService(catalogue, "recap-model"))  # no writer: the template writes
+
+    with TestClient(create_app(services)) as client:
+        session_id = client.post("/sessions", json={"language": "en"}).json()["session_id"]
+        route = f"/sessions/{session_id}/recap"
+        early = client.post(route, json={"email": "camille.martin@example.com"})
+        session = services.sessions.get(session_id)
+        assert session is not None
+        session.profile.consent = Consent.GIVEN
+        session.profile.first_name = "Camille"
+        session.basket.add(catalogue.get("fx-rich-dry"), "en")
+        invalid = client.post(route, json={"email": "camille at example"})
+        ready = client.post(route, json={"email": " Camille.Martin@example.com "})
+        unknown = client.post("/sessions/nope/recap", json={"email": "camille.martin@example.com"})
+
+    assert (early.status_code, early.json()["detail"]) == (409, "consent_needed")
+    assert (invalid.status_code, invalid.json()["detail"]) == (400, "invalid_email")
+    assert unknown.status_code == 404
+    assert ready.status_code == 200, ready.text
+    body = ready.json()
+    profile, recap = (EVENT_ADAPTER.validate_python(event) for event in body["events"])
+    assert (profile.type, recap.type) == ("profile.updated", "recap.ready")
+    assert profile.profile["email"] == recap.email_masked == "c***@example.com"
+    assert recap.subject == "Your L'Oréal routine, Camille"
+    assert recap.coupon["code"].startswith("LEX-")
+    assert profile.turn_id == recap.turn_id
+    assert body["cost_eur"] == 0  # the template wrote it: no model call
+    assert "martin" not in ready.text.lower()
+
+
+def test_the_recap_route_answers_503_without_the_service():
+    with TestClient(create_app(_services(None))) as client:
+        session_id = client.post("/sessions").json()["session_id"]
+        response = client.post(f"/sessions/{session_id}/recap", json={"email": "jo@example.com"})
+
+    assert response.status_code == 503

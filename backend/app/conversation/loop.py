@@ -24,6 +24,7 @@ from app.conversation.events import (
     LinePlay,
     ModelCallTiming,
     TextDelta,
+    TextDone,
     ToolFinished,
     ToolStarted,
     ToolTiming,
@@ -32,7 +33,7 @@ from app.conversation.events import (
     TurnTimings,
 )
 from app.conversation.session import Session
-from app.conversation.stream import ChatStreamer
+from app.conversation.stream import ChatStreamer, ToolChoice
 
 log = structlog.get_logger()
 
@@ -65,10 +66,22 @@ async def run_turn(
     tasks = [asyncio.create_task(obs(session, user_text, previous_reply)) for obs in observers]
     spoken = False
     rounds = 0
+    force_tool = False  # the last reply promised an action without taking it
+    held = ""  # that reply's words, kept for the forced call's message
     try:
         while True:
             agent = agents[session.active_agent]
-            choice = "none" if rounds >= max_rounds else agent.tool_choice(session)
+            offered = agent.tools
+            if rounds >= max_rounds:
+                choice: ToolChoice = "none"
+            elif force_tool:
+                choice = "any"
+            else:
+                choice = agent.tool_choice(session)
+                if choice == "none":
+                    # Shown tools it could not call, the model wrote the call out as text, which
+                    # the voice would read (golden run, 2026-10-05): it gets none to see.
+                    offered = ()
             acc = ToolCallAccumulator()
             parts: list[str] = []
             started = clock()
@@ -76,8 +89,8 @@ async def run_turn(
             async for delta in streamer.stream(
                 model=agent.model,
                 messages=_messages(agent, session),
-                tools=[t.schema() for t in agent.tools] or None,
-                tool_choice=choice if agent.tools else None,
+                tools=[t.schema() for t in offered] or None,
+                tool_choice=choice if offered else None,
             ):
                 if delta.usage is not None:
                     session.usage.add_llm(delta.model or agent.model, delta.usage)
@@ -98,12 +111,35 @@ async def run_turn(
             )
             calls = acc.complete()
             text = "".join(parts)
+            if text and agent.vet_reply is not None:
+                text = agent.vet_reply(session, text)
+            if text:
+                # The browser speaks the whole text in one request now, before any tool runs and
+                # before the turn waits for its observers (spec 001).
+                yield TextDone(turn_id=turn_id, t_ms=ms(), agent=agent.id, text=text)
+            said, held = held + text, ""
             if not calls:
-                if text:
-                    session.history.append({"role": "assistant", "content": text})
+                # A reply that promises an action before any tool ran in this turn, with tools
+                # allowed, acts now. After a tool, "I'll add it" narrates what was done.
+                if (
+                    text
+                    and not force_tool
+                    and rounds == 0
+                    and choice != "none"
+                    and agent.promises_action is not None
+                    and agent.promises_action(text)
+                ):
+                    # Its words join the forced call's message: the API takes no assistant
+                    # message last.
+                    held = text
+                    force_tool = True
+                    continue
+                if said:
+                    session.history.append({"role": "assistant", "content": said})
                 break
+            force_tool = False
             session.history.append(
-                {"role": "assistant", "content": text, "tool_calls": [_wire(c) for c in calls]}
+                {"role": "assistant", "content": said, "tool_calls": [_wire(c) for c in calls]}
             )
             rounds += 1
             switch_to: str | None = None

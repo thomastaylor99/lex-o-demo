@@ -40,7 +40,10 @@ STT_EUR_PER_MINUTE: dict[str, float] = {
 
 # Euros per 1,000 characters of text sent. The page shows 0.01 EUR beside 0.016 USD, so the euro
 # figure looks rounded.
-TTS_EUR_PER_1K_CHARS: dict[str, float] = {"voxtral-mini-tts-2603": 0.01}
+TTS_EUR_PER_1K_CHARS: dict[str, float] = {
+    "voxtral-mini-tts-2603": 0.01,
+    "voxtral-mini-tts-3": 0.01,  # assumed equal to 2603 until the price page lists it
+}
 
 _unpriced: set[str] = set()
 

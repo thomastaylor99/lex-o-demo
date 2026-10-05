@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 
 from app.lang import Language
 from app.voice.language import detect
-from tests.golden.live import Turn, assert_speech, first_sentence, handed_over, take_turn
+from tests.golden.live import assert_speech, first_text_done, handed_over, take_turn
 
 pytestmark = pytest.mark.golden
 
@@ -83,16 +83,6 @@ def transcribe(client: TestClient, language: Language, session_id: str) -> Heard
     return Heard(message["text"], message["language"], message["stt_final_ms"], deltas, cost)
 
 
-def sentence_ready_ms(turn: Turn, sentence: str) -> int:
-    """When the expert's first sentence was complete, in ms since turn.started."""
-    text = ""
-    for event in turn.of("text.delta"):
-        text += event["text"] if event["agent"] == "skincare" else ""
-        if len(text.strip()) >= len(sentence):
-            return event["t_ms"]
-    return turn.done["t_ms"]
-
-
 @pytest.mark.parametrize("language", ["en", "fr"])
 def test_a_spoken_turn_runs_from_audio_in_to_audio_out(live: TestClient, language: Language):
     session = live.post("/sessions", json={"language": language}).json()
@@ -110,16 +100,16 @@ def test_a_spoken_turn_runs_from_audio_in_to_audio_out(live: TestClient, languag
     reply = turn.reply("skincare")
     assert detect(reply, default=OTHER[language]) == language, reply
 
-    sentence = first_sentence(reply)
-    speak = {"agent": "skincare", "language": language, "text": sentence, "session_id": session_id}
+    text_done = first_text_done(turn, "skincare")
+    speak = {"agent": "skincare", "language": language, "text": text_done["text"]}
     started = time.perf_counter()
-    speech = live.post("/voice/speak", json=speak)
-    speak_ms = round((time.perf_counter() - started) * 1000)
+    speech = live.post("/voice/speak", json=speak | {"session_id": session_id})
+    speak_ms = round((time.perf_counter() - started) * 1000)  # the whole reply's audio
     speech_s = assert_speech(speech, min_s=0.5)
 
     handover_ms = turn.of("line.play")[0]["t_ms"]
     first_text_ms = turn.of("text.delta")[0]["t_ms"]
-    sentence_ms = sentence_ready_ms(turn, sentence)
+    text_done_ms = text_done["t_ms"]
     log.info(
         "live_pipeline",
         language=language,
@@ -129,11 +119,11 @@ def test_a_spoken_turn_runs_from_audio_in_to_audio_out(live: TestClient, languag
         first_token_ms=[call["first_token_ms"] for call in turn.done["timings"]["model_calls"]],
         handover_line_ms=handover_ms,
         first_text_ms=first_text_ms,
-        first_sentence_ms=sentence_ms,
+        text_done_ms=text_done_ms,
         speak_ms=speak_ms,
         speech_s=round(speech_s, 1),
         first_audio_after_speech_ms=heard.stt_final_ms + handover_ms,
-        expert_audio_after_speech_max_ms=heard.stt_final_ms + sentence_ms + speak_ms,
+        expert_audio_after_speech_max_ms=heard.stt_final_ms + text_done_ms + speak_ms,
         turn_total_ms=turn.done["timings"]["total_ms"],
     )
     assert heard.stt_final_ms < STT_FINAL_MAX_MS

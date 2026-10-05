@@ -15,10 +15,28 @@ from pydantic import BaseModel
 from app.catalogue.models import Concern, SkinType, TexturePreference
 from app.conversation.agent import Observer, UiEvent
 from app.conversation.session import Session
-from app.profile.models import BudgetBand, HairType, ProfileUpdate, RoutineSize, merge
+from app.profile.models import (
+    AgeRange,
+    BudgetBand,
+    HairType,
+    ProductFeedback,
+    ProfileUpdate,
+    RoutineSize,
+    Verdict,
+    merge,
+)
 from app.usage.meter import TokenUsage
 
 log = structlog.get_logger()
+
+
+class FeedbackExtraction(BaseModel):
+    """One product the visitor uses or used. Required but nullable, as below."""
+
+    brand: str | None
+    product: str | None
+    verdict: Verdict | None
+    reason: str | None
 
 
 class ProfileExtraction(BaseModel):
@@ -37,6 +55,8 @@ class ProfileExtraction(BaseModel):
     fragrance_free: bool | None
     hair_type: HairType | None
     hair_concerns: list[Concern]
+    age_years: int | None
+    product_feedback: list[FeedbackExtraction]
 
 
 EXTRACTOR_PROMPT = """\
@@ -68,6 +88,13 @@ Fields and their allowed values:
 - hair_type: straight, wavy, curly or coily, the visitor's own hair. Null if not stated.
 - hair_concerns: hair concerns the visitor wants addressed, only from dry_hair, frizz,
   damaged_hair. Empty list if none stated.
+- age_years: the visitor's own age in years. For a range or a decade, its middle: "in my
+  forties" is 45, "late thirties" is 38, "under thirty" is 25. Null if they do not say.
+- product_feedback: each skincare or haircare product the visitor says they use or used,
+  with brand (as they say it, any company; null if they do not know), product (its name or
+  kind as they say it, such as "a day cream"; null if not said), verdict (liked, disliked or
+  mixed; null if they give no opinion) and reason (a few of their own words, such as "too
+  heavy"; null if none). Empty list if they mention no product they use.
 
 Never fill a field from what the visitor says about someone else, such as a sister or a friend:
 that is never the visitor's own profile. Never copy a value the adviser only suggested."""
@@ -85,9 +112,9 @@ Parse = Callable[[str, list[dict[str, str]]], Awaitable[Parsed]]
 
 
 def to_update(extraction: ProfileExtraction) -> ProfileUpdate:
-    """Map one extraction onto a ProfileUpdate, banding budget_max_eur in code: the JSON
-    schema carries no description the model could read, so the band boundaries live here
-    instead of in the prompt.
+    """Map one extraction onto a ProfileUpdate, banding budget_max_eur and age_years in code:
+    the JSON schema carries no description the model could read, so the band boundaries live
+    here instead of in the prompt.
     """
     return ProfileUpdate(
         first_name=extraction.first_name,
@@ -100,7 +127,26 @@ def to_update(extraction: ProfileExtraction) -> ProfileUpdate:
         fragrance_free=extraction.fragrance_free,
         hair_type=extraction.hair_type,
         hair_concerns=extraction.hair_concerns,
+        age_range=_age_range(extraction.age_years),
+        product_feedback=[
+            ProductFeedback.model_validate(item.model_dump())
+            for item in extraction.product_feedback
+        ],
     )
+
+
+def _age_range(age_years: int | None) -> AgeRange | None:
+    if age_years is None or age_years <= 0:
+        return None
+    if age_years < 30:
+        return AgeRange.UNDER_30
+    if age_years < 40:
+        return AgeRange.THIRTIES
+    if age_years < 50:
+        return AgeRange.FORTIES
+    if age_years < 60:
+        return AgeRange.FIFTIES
+    return AgeRange.SIXTY_PLUS
 
 
 def _budget_band(budget_max_eur: float | None) -> BudgetBand | None:

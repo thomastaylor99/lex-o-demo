@@ -24,6 +24,7 @@ from app.conversation.events import (
     ProfileUpdated,
     RecapReady,
     TextDelta,
+    TextDone,
     ToolFinished,
     ToolStarted,
     ToolTiming,
@@ -75,6 +76,9 @@ def examples() -> list[AnyEvent]:
         LinePlay(turn_id=TURN, t_ms=705, agent="concierge", line="handover_skincare"),
         AgentSwitched(turn_id=TURN, t_ms=706, from_agent="concierge", to_agent="skincare"),
         TextDelta(turn_id=TURN, t_ms=1118, agent="skincare", text="I'm L'Oréal's AI skincare"),
+        TextDone(
+            turn_id=TURN, t_ms=1689, agent="skincare", text="I'm L'Oréal's AI skincare expert."
+        ),
         ToolStarted(turn_id=TURN, t_ms=1690, call_id=CALL, name="search_products", args=search),
         ToolFinished(
             turn_id=TURN, t_ms=1693, call_id=CALL, name="search_products", ok=True, duration_ms=3

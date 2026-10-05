@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { formatCost, formatPrice, formatSeconds, labels, profileWord } from "@/components/i18n";
+import { feedbackText, formatCost, formatPrice, formatSeconds, labels, profileWord } from "@/components/i18n";
 
 /** French numbers carry no-break spaces ("21,62 €", "1 234,50 €"); compare them as plain spaces. */
 const plain = (text: string) => text.replace(/[\u00a0\u202f]/g, " ");
@@ -88,5 +88,21 @@ test.describe("labels", () => {
       const empty = leaves(labels(language)).filter(([, value]) => typeof value !== "string" || !value.trim());
       expect(empty.map(([key]) => `${language}.${key}`)).toEqual([]);
     }
+  });
+});
+
+test.describe("feedbackText", () => {
+  const dayCream = { brand: "L'Oréal Paris", product: "day cream", verdict: "disliked", reason: "too light" } as const;
+
+  test("brand, product, reason and verdict, in each language", () => {
+    expect(feedbackText(dayCream, "en")).toBe("L'Oréal Paris day cream: too light (disliked)");
+    expect(feedbackText(dayCream, "fr")).toBe("L'Oréal Paris day cream : too light (pas aimé)");
+  });
+
+  test("what the visitor left out is left out", () => {
+    expect(feedbackText({ ...dayCream, product: null, reason: null }, "en")).toBe("L'Oréal Paris: (disliked)");
+    expect(feedbackText({ brand: null, product: null, verdict: null, reason: "too sticky" }, "en")).toBe("too sticky");
+    expect(feedbackText({ brand: "CeraVe", product: null, verdict: null, reason: null }, "en")).toBe("CeraVe");
+    expect(feedbackText({ brand: null, product: null, verdict: null, reason: null }, "en")).toBeNull();
   });
 });

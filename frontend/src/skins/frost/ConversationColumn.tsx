@@ -2,44 +2,35 @@
 
 import type { SkinProps } from "../types";
 import { CameraPanel } from "./CameraPanel";
-import { Island } from "./Island";
-import { Relay } from "./Relay";
+import { EmailField } from "./EmailField";
 import { TalkBar } from "./TalkBar";
 import { Transcript } from "./Transcript";
 
 /**
- * Everything below the header on the left: the capsule with the relay beside it, the transcript
- * with its products, tutorials and recap, the camera slot, the talk bar.
+ * Everything below the header on the left: the conversation, which carries the voice on its lines,
+ * with its products, tutorials and recap; the camera slot; the email field once the visitor agreed
+ * to save their profile; the talk bar.
  */
 export function ConversationColumn({ agent }: SkinProps) {
-  const { agents, activeAgent, activity, status, language } = agent;
+  const { status, language } = agent;
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: "2px 0 18px" }}>
-        <Island agents={agents} activeAgent={activeAgent} activity={activity} status={status} language={language} />
-        <Relay agents={agents} activeAgent={activeAgent} />
-      </div>
       <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 24 }}>
         <Transcript
           transcript={agent.transcript}
           groups={agent.productGroups}
           tutorialGroups={agent.tutorialGroups}
           recap={agent.recap}
-          agents={agents}
+          agents={agent.agents}
+          activeAgent={agent.activeAgent}
+          activity={status === "live" ? agent.activity : "idle"}
           language={language}
         />
         {agent.camera && <CameraPanel language={language} />}
       </div>
-      <TalkBar
-        status={status}
-        mode={agent.mode}
-        setMode={agent.setMode}
-        activity={activity}
-        language={language}
-        pttDown={agent.pttDown}
-        pttUp={agent.pttUp}
-      />
+      <EmailField agent={agent} />
+      <TalkBar status={status} mode={agent.mode} setMode={agent.setMode} language={language} pttDown={agent.pttDown} pttUp={agent.pttUp} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ from app.conversation.mistral_stream import MistralStreamer
 from app.conversation.session import SessionStore
 from app.conversation.stream import ChatStreamer
 from app.profile.extractor import make_profile_observer, mistral_parser
+from app.recap.service import RecapService, recap_service
 from app.settings import Settings
 from app.tools import build_tools
 from app.voice.lines import LineCache
@@ -47,6 +48,7 @@ class Services:
     synthesizer: Synthesizer
     lines: LineCache
     observers: Sequence[Observer] = ()
+    recap: RecapService | None = None  # POST /sessions/{id}/recap answers 503 without it
     stt_bias: list[str] = field(default_factory=list)
     turn_timings: dict[str, TurnTimings] = field(default_factory=dict)  # by turn id, oldest first
 
@@ -73,11 +75,21 @@ def build_services(settings: Settings, client: Mistral) -> Services:
         settings.tts_first_chunk_timeout_s,
         hedge_after_s=settings.tts_hedge_after_s,
         max_attempts=settings.tts_max_attempts,
+        parallel_start=settings.tts_parallel_start,
+    )
+    # The fixed lines are synthesised once at startup, where speed matters less than not
+    # doubling the burst of requests (three lines already failed to warm in the live run).
+    line_synthesizer = MistralSynthesizer(
+        client,
+        settings.tts_model,
+        settings.tts_first_chunk_timeout_s,
+        hedge_after_s=settings.tts_hedge_after_s,
+        max_attempts=settings.tts_max_attempts,
     )
     return Services(
         settings=settings,
         catalogue=catalogue,
-        agents=build_agents(settings, build_tools(catalogue, client, settings.recap_model)),
+        agents=build_agents(settings, build_tools(catalogue)),
         sessions=SessionStore(first_agent=FIRST_AGENT, ttl_s=settings.session_ttl_s),
         streamer=MistralStreamer(
             client,
@@ -89,7 +101,8 @@ def build_services(settings: Settings, client: Mistral) -> Services:
             client, settings.stt_model, settings.stt_streaming_delay_ms, context_bias=bias
         ),
         synthesizer=synthesizer,
-        lines=LineCache(synthesizer),
+        lines=LineCache(line_synthesizer),
         observers=[make_profile_observer(mistral_parser(client), settings.extractor_model)],
+        recap=recap_service(client, settings.recap_model, catalogue),
         stt_bias=bias,
     )

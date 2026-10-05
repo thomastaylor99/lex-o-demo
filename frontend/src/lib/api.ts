@@ -5,7 +5,7 @@
  * `NEXT_PUBLIC_API_URL` (see `AGENTS.md`), defaulting to the local backend.
  */
 
-import type { Language } from "./events";
+import { parseEvent, type Language, type StreamEvent } from "./events";
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -93,6 +93,28 @@ export interface SessionUsage {
 export async function getUsage(id: string, signal?: AbortSignal): Promise<SessionUsage> {
   const res = await fetchChecked(`/sessions/${encodeURIComponent(id)}/usage`, { signal });
   return res.json() as Promise<SessionUsage>;
+}
+
+/** What `POST /sessions/{id}/recap` gave back: the events a turn would stream, or why not. */
+export type RecapAnswer =
+  | { ok: true; events: StreamEvent[]; costEur: number }
+  | { ok: false; error: "invalid_email" | "consent_needed" | "failed" };
+
+/**
+ * `POST /sessions/{id}/recap` with the address the visitor typed (spec 006): the profile with the
+ * masked address, then the recap. 400 means the address does not parse, 409 that consent is missing.
+ */
+export async function prepareRecap(id: string, email: string, signal?: AbortSignal): Promise<RecapAnswer> {
+  try {
+    const res = await postJson(`/sessions/${encodeURIComponent(id)}/recap`, { email }, signal);
+    const body = (await res.json()) as { events: unknown[]; cost_eur: number };
+    const events = body.events.map((event) => parseEvent(JSON.stringify(event)));
+    return { ok: true, events, costEur: body.cost_eur };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 400) return { ok: false, error: "invalid_email" };
+    if (error instanceof ApiError && error.status === 409) return { ok: false, error: "consent_needed" };
+    return { ok: false, error: "failed" };
+  }
 }
 
 // --- /config -----------------------------------------------------------------

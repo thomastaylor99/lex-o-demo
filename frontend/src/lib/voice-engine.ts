@@ -2,9 +2,10 @@
  * The browser voice engine (spec 003): mic → live transcript → conversation stream → speech.
  *
  * It mirrors the terminal client that Thomas tested (backend/scripts/talk.py) and the Decathlon
- * reference hook: realtime STT per utterance over a WebSocket, the turn's events over SSE, one
- * TTS stream per sentence played in order, fixed lines played at once, half duplex (the mic is
- * ignored while the agents speak). The engine owns the state; `useVoiceAgent` mirrors it in React.
+ * reference hook: realtime STT over a WebSocket per stretch of speech, the turn's events over SSE,
+ * one TTS stream per reply (the whole text, so the voice keeps one intonation), fixed lines played
+ * at once, half duplex (the mic is ignored while the agents speak). The engine owns the state;
+ * `useVoiceAgent` mirrors it in React.
  */
 
 import {
@@ -14,36 +15,51 @@ import {
   getConfig,
   getUsage,
   postTimings,
+  prepareRecap,
   speak,
   streamConversation,
   type AppConfig,
   type MicMode,
 } from "@/lib/api";
-import { parseEvent, type Language, type StreamEvent } from "@/lib/events";
+import { parseEvent, type Language, type RecapReady, type StreamEvent } from "@/lib/events";
 import { Mic } from "@/lib/mic";
 import { PcmPlayer, type SoundKind } from "@/lib/pcm-player";
+import { SpeechGate } from "@/lib/speech-gate";
 import { Utterance } from "@/lib/utterance";
-import { EMPTY_REPLY_STATS, replyStats, type AgentIdentity, type TranscriptEntry, type VoiceAgent } from "@/lib/voice-agent";
+import {
+  EMPTY_REPLY_STATS,
+  replyStats,
+  type AgentIdentity,
+  type EmailResult,
+  type TranscriptEntry,
+  type VoiceAgent,
+} from "@/lib/voice-agent";
 
-export type Snapshot = Omit<VoiceAgent, "setMode" | "start" | "end" | "pttDown" | "pttUp">;
+export type Snapshot = Omit<VoiceAgent, "setMode" | "start" | "end" | "pttDown" | "pttUp" | "submitEmail">;
 
 const LANGUAGES: Language[] = ["en", "fr"];
-/** RMS of float samples above which a 64 ms frame counts as speech (reference used 0.01). */
-const VAD_THRESHOLD = 0.012;
-/** Consecutive voiced frames that open a hands-free utterance. */
-const VAD_START_FRAMES = 2;
-/** Silence that ends a hands-free utterance (spec 001: 700 ms; the reference waited 1.5 s). */
-const VAD_SILENCE_MS = 700;
 /** Frames kept from before speech starts, so the first syllable is not cut (about 320 ms). */
 const PRE_ROLL_FRAMES = 5;
-const MAX_UTTERANCE_MS = 20_000;
-/** Give the final transcript this long after end of speech before calling it a failure. */
+/** A recap written faster than this needs no "one moment" line. */
+const RECAP_FILLER_AFTER_MS = 800;
+/** Give a socket's final text this long after its audio ended before calling it a failure. */
 const STT_TIMEOUT_MS = 6_000;
 /** Ignore the mic this long after the agent stops, so the tail of its voice is not heard. */
 const LISTEN_GUARD_MS = 300;
-const MIN_SENTENCE = 20;
-/** Sentence end: . ! ? or … followed by a space or the end, not after a digit (prices). */
-const SENTENCE_END = /(?<!\d)[.!?…](?=\s|$)/g;
+/**
+ * At a handover the new agent joins when the previous one has finished its line, and speaks after
+ * this pause. With none, the second voice cut in the moment the first stopped.
+ */
+const HANDOVER_PAUSE_S = 1.2;
+
+/** One transcription socket's share of the visitor's line: a pause can end one and start the next. */
+interface Segment {
+  socket: Utterance | null;
+  text: string; // the live deltas, then the final text
+  ended: boolean;
+  final: boolean;
+  language: Language | null;
+}
 
 interface Turn {
   id: string | null;
@@ -51,7 +67,8 @@ interface Turn {
   sttFinal: number | null;
   requestSent: number | null;
   firstDelta: number | null;
-  firstSentence: number | null;
+  /** The first reply text sent to speech, posted as `first_sentence`. */
+  firstSpeech: number | null;
   firstAudio: number | null;
   firstAudioKind: SoundKind | null;
   done: boolean;
@@ -92,17 +109,17 @@ export class VoiceEngine {
   private readonly player = new PcmPlayer();
   private readonly lines = new Map<string, ArrayBuffer>();
 
-  // listening
-  private utterance: Utterance | null = null; // recording
-  private transcribing: Utterance | null = null; // ended, waiting for its final text
-  /** Bumped whenever an utterance is dropped or settled, so its late callbacks are ignored. */
-  private utteranceGen = 0;
+  // listening: the visitor's line, as one segment per transcription socket
+  private segments: Segment[] = [];
+  private recording: Segment | null = null; // the segment the mic frames go to
+  /** Bumped whenever the line is dropped or settled, so the late callbacks of its sockets are ignored. */
+  private lineGen = 0;
   private visitorEntryId: string | null = null;
+  /** The visitor has finished: the turn waits for the final text of every segment. */
+  private awaitingText = false;
   private holding = false;
-  private voicedRun = 0;
+  private readonly gate = new SpeechGate();
   private preRoll: Int16Array[] = [];
-  private lastVoicedAt = 0;
-  private utteranceStartedAt = 0;
   private listenFrom = 0;
   private sttTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -111,7 +128,10 @@ export class VoiceEngine {
   private turn: Turn | null = null;
   private currentAgent = "concierge";
   private agentEntryId: string | null = null;
-  private sentence = "";
+  /** Reply text not sent to speech yet: `text.done` sends it whole. */
+  private unspoken = "";
+  /** While an agent joins, changes to the transcript wait here and show when its voice starts. */
+  private joining: (() => void)[] | null = null;
   private seq = 0;
   private replySamples: number[] = [];
 
@@ -157,7 +177,7 @@ export class VoiceEngine {
   async end(): Promise<void> {
     this.controller.abort();
     this.stopListening();
-    this.settleUtterance(); // its STT timer would otherwise remove the next visitor's line
+    this.settleLine(); // its STT timer would otherwise remove the next visitor's line
     this.mic?.close();
     this.mic = null;
     this.player.clear();
@@ -165,6 +185,7 @@ export class VoiceEngine {
     this.sessionId = null;
     this.busy = false;
     this.turn = null;
+    this.joining = null;
     this.replySamples = [];
     this.update(initialSnapshot(this.snap.mode));
   }
@@ -178,82 +199,130 @@ export class VoiceEngine {
   pttDown(): void {
     if (this.snap.status !== "live" || this.snap.mode !== "push_to_talk" || this.busy || this.holding) return;
     this.holding = true;
-    this.beginUtterance(performance.now());
+    this.beginSegment();
   }
 
   pttUp(): void {
     if (!this.holding) return;
     this.holding = false;
-    this.finishUtterance(performance.now());
+    this.endLine(performance.now());
+  }
+
+  /**
+   * The visitor typed their address on screen (spec 006). The backend writes the recap; the expert
+   * says "one moment" if that takes a while, then that the recap and the offer are on screen.
+   */
+  async submitEmail(email: string): Promise<EmailResult> {
+    const sessionId = this.sessionId;
+    if (this.snap.status !== "live" || sessionId === null) return { ok: false, error: "failed" };
+    const agent = this.currentAgent;
+    this.stopListening();
+    this.busy = true;
+    this.update({ activity: "thinking" });
+    const filler = setTimeout(() => {
+      this.playLine(agent, "filler_recap");
+      this.update({ activity: "speaking" });
+    }, RECAP_FILLER_AFTER_MS);
+    const answer = await prepareRecap(sessionId, email, this.controller.signal);
+    clearTimeout(filler);
+    if (sessionId !== this.sessionId) return { ok: false, error: "failed" };
+    if (!answer.ok) {
+      // The field shows what went wrong; when the backend failed, the expert says so too, so the
+      // visitor never hears "One moment" followed by silence.
+      if (answer.error === "failed") {
+        this.update({ activity: "speaking" });
+        this.playLine(agent, "recap_failed", false);
+      }
+      this.player.whenDrained(() => this.becomeReady());
+      return answer;
+    }
+    for (const event of answer.events) {
+      if (event.type === "profile.updated") this.update({ profile: event.profile });
+      else if (event.type === "recap.ready") this.showRecap(event);
+    }
+    this.raiseCost(sessionId, answer.costEur);
+    this.update({ activity: "speaking" });
+    this.playLine(agent, "recap_ready", false);
+    this.player.whenDrained(() => this.becomeReady());
+    return { ok: true };
   }
 
   // ---------------------------------------------------------------- listening
 
   private onFrame(pcm: Int16Array, rms: number): void {
     if (this.snap.status !== "live") return;
-    const now = performance.now();
     if (this.snap.mode === "push_to_talk") {
-      if (this.holding) this.utterance?.send(pcm);
+      if (this.holding) this.recording?.socket?.send(pcm);
       return;
     }
-    if (this.busy || now < this.listenFrom) return;
-    const voiced = rms > VAD_THRESHOLD;
-    if (!this.utterance) {
-      this.preRoll.push(pcm);
-      if (this.preRoll.length > PRE_ROLL_FRAMES) this.preRoll.shift();
-      this.voicedRun = voiced ? this.voicedRun + 1 : 0;
-      if (this.voicedRun >= VAD_START_FRAMES) {
-        this.beginUtterance(now);
-        this.preRoll.forEach((frame) => this.utterance?.send(frame));
-        this.preRoll = [];
-        this.lastVoicedAt = now;
-      }
-      return;
-    }
-    this.utterance.send(pcm);
-    if (voiced) this.lastVoicedAt = now;
-    if (now - this.lastVoicedAt > VAD_SILENCE_MS || now - this.utteranceStartedAt > MAX_UTTERANCE_MS) {
-      this.finishUtterance(this.lastVoicedAt);
-    }
+    if (this.busy) return;
+    const now = performance.now();
+    // Right after the agent stops, its voice may still echo: nothing is heard yet, but the frames
+    // stay in the pre-roll, so a quick "Yes" keeps its first word.
+    const event = now < this.listenFrom ? null : this.gate.frame(now, rms);
+    if (this.recording) this.recording.socket?.send(pcm);
+    else this.keepPreRoll(pcm);
+    if (event === "start" || event === "resume") this.beginSegment();
+    else if (event === "soft_end") this.endSegment();
+    else if (event === "end") this.endLine(this.gate.speechEnd);
   }
 
-  /** `carry` continues a visitor line the server closed too early: same line, same start time. */
-  private beginUtterance(now: number, carry?: { id: string; text: string; startedAt: number }): void {
-    this.utteranceStartedAt = carry?.startedAt ?? now;
-    const gen = ++this.utteranceGen;
-    const current = () => gen === this.utteranceGen;
-    const id = carry?.id ?? this.nextId();
-    const withCarry = (rest: string) => `${carry?.text ?? ""} ${rest}`.trim();
-    this.visitorEntryId = id;
-    let text = "";
-    this.utterance = new Utterance(this.snap.language, this.sessionId, {
+  private keepPreRoll(pcm: Int16Array): void {
+    this.preRoll.push(pcm);
+    if (this.preRoll.length > PRE_ROLL_FRAMES) this.preRoll.shift();
+  }
+
+  /** Open a transcription socket for the visitor's line and send it the frames kept from just before. */
+  private beginSegment(): void {
+    this.visitorEntryId ??= this.nextId();
+    const gen = this.lineGen;
+    const current = () => gen === this.lineGen;
+    const segment: Segment = { socket: null, text: "", ended: false, final: false, language: null };
+    segment.socket = new Utterance(this.snap.language, this.sessionId, {
       onDelta: (delta) => {
         if (!current()) return;
-        text += delta;
-        this.upsertEntry({ id, kind: "visitor", agent: null, text: withCarry(text), final: false });
+        segment.text += delta;
+        this.showLine();
       },
-      onDone: (finalText, language) => {
-        if (current()) this.onTranscribed(id, withCarry(finalText), language);
+      onDone: (text, language) => {
+        if (current()) this.onSegmentDone(segment, text, language);
       },
       onError: (error) => {
-        if (current()) this.onListeningFailed(id, error);
+        if (current()) this.onListeningFailed(error);
       },
     });
+    this.segments.push(segment);
+    this.recording = segment;
+    this.preRoll.forEach((frame) => segment.socket?.send(frame));
+    this.preRoll = [];
     this.update({ activity: "listening", error: null });
   }
 
-  private finishUtterance(speechEnd: number): void {
-    const utterance = this.utterance;
-    if (!utterance) return;
-    this.utterance = null;
-    this.transcribing = utterance;
-    this.openTurn(speechEnd);
-    utterance.end();
-    const gen = this.utteranceGen;
-    const entryId = this.visitorEntryId;
+  /** End the recording socket. Its final text comes back while the visitor may still go on. */
+  private endSegment(): void {
+    const segment = this.recording;
+    if (!segment) return;
+    this.recording = null;
+    segment.ended = true;
+    segment.socket?.end();
+    const gen = this.lineGen;
+    if (this.sttTimer) clearTimeout(this.sttTimer);
     this.sttTimer = setTimeout(() => {
-      if (gen === this.utteranceGen && entryId) this.onListeningFailed(entryId, "no transcript received");
+      if (gen === this.lineGen && this.segments.some((s) => s.ended && !s.final)) {
+        this.onListeningFailed("no transcript received");
+      }
     }, STT_TIMEOUT_MS);
+  }
+
+  /** The visitor has finished: the last socket ends, and the turn runs once the text is in. */
+  private endLine(speechEnd: number): void {
+    this.endSegment();
+    this.gate.reset();
+    this.preRoll = [];
+    if (this.segments.length === 0) return;
+    this.openTurn(speechEnd);
+    this.awaitingText = true;
+    this.completeLine();
   }
 
   /** The visitor has finished speaking: the turn starts its clock and the mic is ignored. */
@@ -265,7 +334,7 @@ export class VoiceEngine {
       sttFinal: null,
       requestSent: null,
       firstDelta: null,
-      firstSentence: null,
+      firstSpeech: null,
       firstAudio: null,
       firstAudioKind: null,
       done: false,
@@ -274,23 +343,31 @@ export class VoiceEngine {
     this.update({ activity: "thinking" });
   }
 
-  private onTranscribed(entryId: string, text: string, language: Language): void {
-    if (this.utterance) {
+  private onSegmentDone(segment: Segment, text: string, language: Language): void {
+    segment.text = text.trim();
+    segment.final = true;
+    segment.language = language;
+    if (segment === this.recording) {
       // The server closed the sentence while the visitor is still speaking (Thomas, 2026-10-05:
-      // keep listening). Show what it heard, carry on with a new socket on the same line, and
-      // answer the whole sentence after the visitor's own silence.
-      const heard = text.trim();
-      this.utterance.close();
-      this.utterance = null;
-      this.upsertEntry({ id: entryId, kind: "visitor", agent: null, text: heard, final: false });
-      this.beginUtterance(performance.now(), { id: entryId, text: heard, startedAt: this.utteranceStartedAt });
-      return;
+      // keep listening): carry on with a new socket on the same line, and answer the whole line
+      // after the visitor's own silence.
+      this.recording = null;
+      this.beginSegment();
     }
-    this.settleUtterance();
+    this.showLine();
+    this.completeLine();
+  }
+
+  /** Once the visitor has finished and every socket has given its final text, the turn runs. */
+  private completeLine(): void {
     const turn = this.turn;
-    const said = text.trim();
-    if (!turn || !said) {
-      this.removeEntry(entryId);
+    if (!this.awaitingText || !turn || this.segments.some((s) => !s.final)) return;
+    const entryId = this.visitorEntryId;
+    const said = lineText(this.segments);
+    const language = this.segments.findLast((s) => s.text)?.language ?? this.snap.language;
+    this.settleLine();
+    if (!entryId || !said) {
+      if (entryId) this.removeEntry(entryId);
       this.becomeReady();
       return;
     }
@@ -303,36 +380,45 @@ export class VoiceEngine {
     void this.runTurn(turn, said, language);
   }
 
-  private onListeningFailed(entryId: string, error: string): void {
-    this.utterance?.close();
-    this.utterance = null;
-    this.settleUtterance();
-    this.removeEntry(entryId);
+  /** The visitor's words so far, live. */
+  private showLine(): void {
+    const text = lineText(this.segments);
+    if (this.visitorEntryId && text) {
+      this.upsertEntry({ id: this.visitorEntryId, kind: "visitor", agent: null, text, final: false });
+    }
+  }
+
+  private onListeningFailed(error: string): void {
+    const entryId = this.visitorEntryId;
+    this.settleLine();
+    this.gate.reset();
+    this.preRoll = [];
+    if (entryId) this.removeEntry(entryId);
     this.update({ error: `Speech recognition: ${error}` });
     this.becomeReady();
   }
 
-  /** The utterance in flight is over: stop its timer, close its socket, ignore what it still sends. */
-  private settleUtterance(): void {
-    this.utteranceGen++;
+  /** The line is over: stop its timer, close its sockets, ignore what they still send. */
+  private settleLine(): void {
+    this.lineGen++;
     if (this.sttTimer) clearTimeout(this.sttTimer);
     this.sttTimer = null;
-    this.transcribing?.close();
-    this.transcribing = null;
+    this.segments.forEach((segment) => segment.socket?.close());
+    this.segments = [];
+    this.recording = null;
     this.visitorEntryId = null;
+    this.awaitingText = false;
   }
 
-  /** Stop recording and drop the unfinished line; an utterance waiting for its final text carries on. */
+  /** Drop the line the visitor has not finished; a finished line waiting for its text carries on. */
   private stopListening(): void {
-    if (this.utterance) {
-      this.utteranceGen++;
-      this.utterance.close();
-      this.utterance = null;
-      if (this.visitorEntryId) this.removeEntry(this.visitorEntryId);
-      this.visitorEntryId = null;
+    if (!this.awaitingText && this.segments.length > 0) {
+      const entryId = this.visitorEntryId;
+      this.settleLine();
+      if (entryId) this.removeEntry(entryId);
     }
     this.holding = false;
-    this.voicedRun = 0;
+    this.gate.reset();
     this.preRoll = [];
   }
 
@@ -355,7 +441,7 @@ export class VoiceEngine {
     const sessionId = this.sessionId;
     if (!sessionId) return;
     this.agentEntryId = null;
-    this.sentence = "";
+    this.unspoken = "";
     this.player.markTurn((at, kind) => {
       turn.firstAudio = at;
       turn.firstAudioKind = kind;
@@ -373,8 +459,8 @@ export class VoiceEngine {
       if (isAbort(error)) return;
       this.update({ error: `Conversation: ${message(error)}` });
     }
-    this.flushSentences(true);
-    this.closeAgentEntry();
+    this.speakUnspoken();
+    this.whenJoined(() => this.closeAgentEntry());
     turn.done = true;
     this.postTimings(turn);
     this.player.whenDrained(() => {
@@ -392,32 +478,44 @@ export class VoiceEngine {
       case "text.delta":
         turn.firstDelta ??= performance.now();
         if (event.agent !== this.currentAgent) {
-          this.flushSentences(true);
+          this.speakUnspoken();
           this.currentAgent = event.agent;
         }
-        this.sentence += event.text;
-        this.flushSentences(false);
+        this.unspoken += event.text;
+        break;
+      case "text.done":
+        // The model call's text is complete: one request speaks it whole, in one intonation.
+        if (this.unspoken.trim()) this.speakText(event.agent, event.text);
+        this.unspoken = "";
         break;
       case "tool.started":
-        this.flushSentences(true);
+        this.speakUnspoken();
         break;
       case "line.play":
-        this.flushSentences(true);
+        this.speakUnspoken();
         this.playLine(event.agent, event.line);
         break;
-      case "agent.switched":
-        this.flushSentences(true);
+      case "agent.switched": {
+        this.speakUnspoken();
         this.closeAgentEntry();
-        this.currentAgent = event.to_agent;
-        this.appendEntry({
-          id: this.nextId(),
-          kind: "handover",
-          agent: event.to_agent,
-          text: this.identity(event.to_agent)?.displayName ?? event.to_agent,
-          final: true,
+        const to = event.to_agent;
+        this.currentAgent = to;
+        // The new agent joins once the previous one's line has played, then speaks after a pause;
+        // its words reach the screen with its voice.
+        this.joining = [];
+        this.player.cue(() => {
+          this.appendEntry({ id: this.nextId(), kind: "handover", agent: to, text: this.identity(to)?.displayName ?? to, final: true });
+          this.update({ activeAgent: this.identity(to), activity: "thinking" });
         });
-        this.update({ activeAgent: this.identity(event.to_agent) });
+        this.player.pause(HANDOVER_PAUSE_S);
+        this.player.cue(() => {
+          const changes = this.joining ?? [];
+          this.joining = null;
+          changes.forEach((change) => change());
+          this.update({ activity: "speaking" });
+        });
         break;
+      }
       case "products.shown": {
         const groupId = `${event.turn_id}-${this.snap.productGroups.length}`;
         this.update({
@@ -431,7 +529,8 @@ export class VoiceEngine {
             },
           ],
         });
-        this.appendEntry({ id: this.nextId(), kind: "products", agent: this.currentAgent, text: "", final: true, groupId });
+        const agent = this.currentAgent;
+        this.whenJoined(() => this.appendEntry({ id: this.nextId(), kind: "products", agent, text: "", final: true, groupId }));
         break;
       }
       case "basket.updated":
@@ -443,17 +542,15 @@ export class VoiceEngine {
       case "tutorials.shown": {
         const groupId = `${event.turn_id}-t${this.snap.tutorialGroups.length}`;
         this.update({ tutorialGroups: [...this.snap.tutorialGroups, { id: groupId, tutorials: event.tutorials }] });
-        this.appendEntry({ id: this.nextId(), kind: "tutorials", agent: this.currentAgent, text: "", final: true, groupId });
+        const agent = this.currentAgent;
+        this.whenJoined(() => this.appendEntry({ id: this.nextId(), kind: "tutorials", agent, text: "", final: true, groupId }));
         break;
       }
       case "recap.ready":
-        this.update({
-          recap: { emailMasked: event.email_masked, subject: event.subject, body: event.body, coupon: event.coupon },
-        });
-        this.appendEntry({ id: this.nextId(), kind: "recap", agent: this.currentAgent, text: "", final: true });
+        this.showRecap(event);
         break;
       case "turn.done":
-        this.flushSentences(true);
+        this.speakUnspoken();
         this.raiseCost(this.sessionId, event.cost_eur);
         break;
       case "error":
@@ -464,30 +561,18 @@ export class VoiceEngine {
     }
   }
 
-  /** Send every complete sentence to speech; with `force`, the rest too. */
-  private flushSentences(force: boolean): void {
-    let cut = 0;
-    for (const match of this.sentence.matchAll(SENTENCE_END)) {
-      const end = (match.index ?? 0) + 1;
-      const candidate = this.sentence.slice(cut, end).trim();
-      if (candidate.length >= MIN_SENTENCE) {
-        this.speakSentence(candidate);
-        cut = end;
-      }
-    }
-    this.sentence = this.sentence.slice(cut);
-    if (force && this.sentence.trim()) {
-      this.speakSentence(this.sentence.trim());
-      this.sentence = "";
-    }
+  /** Speak reply text whose `text.done` never came, as when the stream broke off. */
+  private speakUnspoken(): void {
+    const text = this.unspoken.trim();
+    this.unspoken = "";
+    if (text) this.speakText(this.currentAgent, text);
   }
 
-  private speakSentence(text: string): void {
+  private speakText(agent: string, text: string): void {
     const turn = this.turn;
-    if (turn) turn.firstSentence ??= performance.now();
-    const agent = this.currentAgent;
-    this.appendToAgentEntry(agent, text);
-    // Start the request now so it downloads while earlier sentences play.
+    if (turn) turn.firstSpeech ??= performance.now();
+    this.whenJoined(() => this.appendToAgentEntry(agent, text.trim()));
+    // Start the request now so it downloads while what is queued before it plays.
     const body = speak(agent, this.snap.language, text, this.sessionId, this.controller.signal)
       .then((response) => response.body)
       .catch((error: unknown) => {
@@ -497,10 +582,30 @@ export class VoiceEngine {
     this.player.enqueue({ kind: "stream", body, tag: "speech" });
   }
 
-  private playLine(agent: string, line: string): void {
+  /**
+   * A fixed line, played at once (handover, fillers) or after what is already queued. While an
+   * agent joins, its lines wait for the end of the pause.
+   */
+  private playLine(agent: string, line: string, now = true): void {
     const pcm = this.lines.get(lineKey(agent, line, this.snap.language)) ?? this.lines.get(lineKey(agent, line, "en"));
-    this.addLineEntry(agent, line);
-    if (pcm) this.player.playNow({ kind: "buffer", data: pcm, tag: "line" });
+    this.whenJoined(() => this.addLineEntry(agent, line));
+    if (!pcm) return;
+    if (now && this.joining === null) this.player.playNow({ kind: "buffer", data: pcm, tag: "line" });
+    else this.player.enqueue({ kind: "buffer", data: pcm, tag: "line" });
+  }
+
+  /** A change to the transcript, now or, while an agent joins, when its voice starts. */
+  private whenJoined(change: () => void): void {
+    if (this.joining) this.joining.push(change);
+    else change();
+  }
+
+  /** The recap preview, where it appeared in the conversation. */
+  private showRecap(event: RecapReady): void {
+    this.update({
+      recap: { emailMasked: event.email_masked, subject: event.subject, body: event.body, coupon: event.coupon },
+    });
+    this.appendEntry({ id: this.nextId(), kind: "recap", agent: this.currentAgent, text: "", final: true });
   }
 
   private postTimings(turn: Turn): void {
@@ -513,7 +618,7 @@ export class VoiceEngine {
       stt_final: since(turn.sttFinal),
       request_sent: since(turn.requestSent),
       first_delta: since(turn.firstDelta),
-      first_sentence: since(turn.firstSentence),
+      first_sentence: since(turn.firstSpeech),
       first_audio: since(turn.firstAudio),
       first_audio_kind: turn.firstAudioKind,
     }).catch(() => {});
@@ -631,6 +736,14 @@ export class VoiceEngine {
     this.snap = { ...this.snap, ...patch };
     this.publish(this.snap);
   }
+}
+
+/** The visitor's line: the text of each segment, in order. */
+function lineText(segments: Segment[]): string {
+  return segments
+    .map((segment) => segment.text.trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 function lineKey(agent: string, line: string, language: Language): string {

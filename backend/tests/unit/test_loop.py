@@ -1,6 +1,7 @@
 """Conversation loop (spec 001): one visitor turn, streamed as typed events."""
 
 import asyncio
+import dataclasses
 import json
 from typing import Any
 
@@ -15,6 +16,7 @@ from app.conversation.events import (
     ProductsShown,
     ProfileUpdated,
     TextDelta,
+    TextDone,
     ToolFinished,
     ToolStarted,
     TurnDone,
@@ -92,7 +94,7 @@ async def test_text_only_turn_streams_deltas_and_records_the_reply(session: Sess
 
     events = await run(session, streamer, "Hi")
 
-    assert kinds(events) == ["turn.started", "text.delta", "text.delta", "turn.done"]
+    assert kinds(events) == ["turn.started", "text.delta", "text.delta", "text.done", "turn.done"]
     assert [event.text for event in events if isinstance(event, TextDelta)] == ["Hello", " there."]
     assert session.history == [
         {"role": "user", "content": "Hi"},
@@ -119,6 +121,7 @@ async def test_tool_round_runs_the_tool_and_feeds_its_result_back(session: Sessi
         "tool.finished",
         "products.shown",
         "text.delta",
+        "text.done",
         "turn.done",
     ]
     assert first(events, ToolStarted).args == {"query": "serum"}
@@ -193,6 +196,7 @@ async def test_switch_hands_the_rest_of_the_turn_to_the_new_agent(session: Sessi
         "line.play",
         "agent.switched",
         "text.delta",
+        "text.done",
         "turn.done",
     ]
     handover = first(events, LinePlay)
@@ -236,7 +240,7 @@ async def test_round_cap_makes_the_last_model_call_answer_without_tools(session:
     events = await run(session, streamer)
 
     assert [call["tool_choice"] for call in streamer.calls] == ["auto", "auto", "auto", "none"]
-    assert kinds(events)[-2:] == ["text.delta", "turn.done"]
+    assert kinds(events)[-3:] == ["text.delta", "text.done", "turn.done"]
 
 
 async def test_observer_events_arrive_before_turn_done(session: Session) -> None:
@@ -268,7 +272,7 @@ async def test_slow_and_failing_observers_are_skipped(session: Session) -> None:
         observer_timeout_s=0.05,
     )
 
-    assert kinds(events) == ["turn.started", "text.delta", "turn.done"]
+    assert kinds(events) == ["turn.started", "text.delta", "text.done", "turn.done"]
 
 
 async def test_unknown_tool_fails_the_call_and_the_turn_goes_on(session: Session) -> None:
@@ -279,7 +283,7 @@ async def test_unknown_tool_fails_the_call_and_the_turn_goes_on(session: Session
     assert first(events, ToolFinished).ok is False
     assert "error" in json.loads(tool_messages(session)[0]["content"])
     assert len(streamer.calls) == 2
-    assert kinds(events)[-2:] == ["text.delta", "turn.done"]
+    assert kinds(events)[-3:] == ["text.delta", "text.done", "turn.done"]
 
 
 async def test_invalid_arguments_fail_the_call(session: Session) -> None:
@@ -326,3 +330,108 @@ async def test_messages_keep_a_stable_prefix_before_the_context_block(session: S
     stable, _ = layouts[0]
     assert stable == [instructions, *earlier]
     assert calls[2][: len(stable)] == stable
+
+
+def promising_alpha() -> dict[str, Any]:
+    """The agents, with alpha flagging "one moment" as a promise to act."""
+    alpha = dataclasses.replace(ALPHA, promises_action=lambda text: "one moment" in text.lower())
+    return {**AGENTS, "alpha": alpha}
+
+
+async def test_a_promise_without_a_tool_call_is_followed_by_a_forced_tool_call(
+    session: Session,
+) -> None:
+    streamer = ScriptedStreamer(
+        [reply("Let me look. One moment."), [tool_call("look", LOOK_ARGS)], reply(" Here it is.")]
+    )
+
+    turn = run_turn(
+        session, "Hello", agents=promising_alpha(), streamer=streamer, clock=FakeClock()
+    )
+    events = [event async for event in turn]
+
+    assert [call["tool_choice"] for call in streamer.calls] == ["auto", "any", "auto"]
+    assert first(events, ToolStarted).name == "look"
+    spoken = "".join(event.text for event in events if isinstance(event, TextDelta))
+    assert spoken == "Let me look. One moment. Here it is."
+    # The API takes no assistant message last: the promise joins the forced call's message.
+    assert streamer.calls[1]["messages"][-1]["role"] != "assistant"
+    acted = [m for m in session.history if m["role"] == "assistant" and m.get("tool_calls")]
+    assert [m["content"] for m in acted] == ["Let me look. One moment."]
+
+
+async def test_a_promise_after_a_tool_ran_in_the_turn_forces_nothing(session: Session) -> None:
+    """ "I'll add it" after the tool ran narrates what was done (golden run, 2026-10-05)."""
+    streamer = ScriptedStreamer([[tool_call("look", LOOK_ARGS)], reply("Done. One moment more?")])
+
+    turn = run_turn(
+        session, "Hello", agents=promising_alpha(), streamer=streamer, clock=FakeClock()
+    )
+    events = [event async for event in turn]
+
+    assert [call["tool_choice"] for call in streamer.calls] == ["auto", "auto"]
+    assert kinds(events)[-1] == "turn.done"
+
+
+async def test_a_promise_made_without_tools_ends_the_turn(session: Session) -> None:
+    """While the diagnosis is open the expert has no tools, so its words cannot force one."""
+    alpha = dataclasses.replace(promising_alpha()["alpha"], tool_choice=lambda _session: "none")
+    streamer = ScriptedStreamer([reply("One moment: is your skin dry or oily?")])
+
+    turn = run_turn(
+        session, "Hello", agents={**AGENTS, "alpha": alpha}, streamer=streamer, clock=FakeClock()
+    )
+    events = [event async for event in turn]
+
+    assert [call["tool_choice"] for call in streamer.calls] == [None]
+    assert streamer.calls[0]["tools"] is None  # tools it cannot call, it would write out as text
+    assert kinds(events) == ["turn.started", "text.delta", "text.done", "turn.done"]
+
+
+async def test_a_vetted_reply_is_what_text_done_and_the_history_carry(session: Session) -> None:
+    alpha = dataclasses.replace(ALPHA, vet_reply=lambda _session, text: text.upper())
+    streamer = ScriptedStreamer([reply("which skin type?")])
+
+    turn = run_turn(
+        session, "Hello", agents={**AGENTS, "alpha": alpha}, streamer=streamer, clock=FakeClock()
+    )
+    events = [event async for event in turn]
+
+    assert first(events, TextDone).text == "WHICH SKIN TYPE?"
+    assert session.history[-1] == {"role": "assistant", "content": "WHICH SKIN TYPE?"}
+
+
+async def test_a_reply_without_a_promise_ends_the_turn(session: Session) -> None:
+    streamer = ScriptedStreamer([reply("Which skin type do you have?")])
+
+    turn = run_turn(
+        session, "Hello", agents=promising_alpha(), streamer=streamer, clock=FakeClock()
+    )
+    events = [event async for event in turn]
+
+    assert len(streamer.calls) == 1
+    assert kinds(events) == ["turn.started", "text.delta", "text.done", "turn.done"]
+
+
+async def test_text_done_comes_before_the_tools_and_before_the_observers(session: Session) -> None:
+    async def observer(_session: Session, _text: str, _previous: str | None) -> list[UiEvent]:
+        return [UiEvent(type="profile.updated", payload={"profile": {"skin_type": "dry"}})]
+
+    looking = [*reply("Looking", " now."), tool_call("look", LOOK_ARGS)]
+    streamer = ScriptedStreamer([looking, reply("Here it is.")])
+
+    events = await run(session, streamer, observers=[observer])
+
+    done = [event for event in events if isinstance(event, TextDone)]
+    assert [event.text for event in done] == ["Looking now.", "Here it is."]
+    order = kinds(events)
+    assert order.index("text.done") < order.index("tool.started")
+    assert order.index("text.done", order.index("tool.started")) < order.index("profile.updated")
+
+
+async def test_no_text_done_for_a_call_that_wrote_no_text(session: Session) -> None:
+    streamer = ScriptedStreamer([[tool_call("look", LOOK_ARGS)], reply("Here it is.")])
+
+    events = await run(session, streamer)
+
+    assert [event.text for event in events if isinstance(event, TextDone)] == ["Here it is."]

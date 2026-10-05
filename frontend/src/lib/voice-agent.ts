@@ -62,6 +62,9 @@ export interface AgentIdentity {
   roleLabel: string;
 }
 
+/** What became of the address the visitor typed (spec 006). */
+export type EmailResult = { ok: true } | { ok: false; error: "invalid_email" | "consent_needed" | "failed" };
+
 export interface VoiceAgent {
   status: "idle" | "starting" | "live" | "error";
   activity: AgentActivity;
@@ -72,6 +75,8 @@ export interface VoiceAgent {
   end(): Promise<void>;
   pttDown(): void;
   pttUp(): void;
+  /** The address typed on screen, once the visitor agreed to save their profile: the recap follows. */
+  submitEmail(email: string): Promise<EmailResult>;
   language: Language;
   activeAgent: AgentIdentity | null;
   agents: AgentIdentity[];

@@ -28,6 +28,34 @@ class HairType(StrEnum):
     COILY = "coily"
 
 
+class AgeRange(StrEnum):
+    """Decades, the way visitors say it ("in my forties"); asked as optional (spec 002)."""
+
+    UNDER_30 = "under_30"
+    THIRTIES = "30s"
+    FORTIES = "40s"
+    FIFTIES = "50s"
+    SIXTY_PLUS = "60_plus"
+
+
+class Verdict(StrEnum):
+    LIKED = "liked"
+    DISLIKED = "disliked"
+    MIXED = "mixed"
+
+
+class ProductFeedback(BaseModel):
+    """A product the visitor uses or used, in their words: data for the brands' marketing teams.
+
+    Any brand is kept, other companies' included; the expert never discusses those aloud.
+    """
+
+    brand: str | None = None
+    product: str | None = None
+    verdict: Verdict | None = None
+    reason: str | None = None
+
+
 class Consent(StrEnum):
     PENDING = "pending"
     GIVEN = "given"
@@ -47,12 +75,14 @@ class ProfileUpdate(BaseModel):
     fragrance_free: bool | None = None
     hair_type: HairType | None = None
     hair_concerns: list[Concern] = []
+    age_range: AgeRange | None = None
+    product_feedback: list[ProductFeedback] = []
 
 
 class BeautyProfile(ProfileUpdate):
     language: Language | None = None
     consent: Consent = Consent.PENDING
-    email: str | None = None  # masked (c***@gmail.com); set by send_recap, never by extraction
+    email: str | None = None  # masked (c***@gmail.com); set by the recap route only
 
 
 def merge(profile: BeautyProfile, update: ProfileUpdate) -> BeautyProfile:
@@ -67,11 +97,13 @@ def merge(profile: BeautyProfile, update: ProfileUpdate) -> BeautyProfile:
         return profile
 
     data = profile.model_dump()
-    fields = update.model_dump(include=set(ProfileUpdate.model_fields), exclude_none=True)
+    own = set(ProfileUpdate.model_fields)
+    fields = update.model_dump(include=own, exclude_none=True)
+    whole = update.model_dump(include=own)  # list items keep their None fields, to compare
     for name, value in fields.items():
         if isinstance(value, list):
             current = data.get(name) or []
-            data[name] = current + [v for v in value if v not in current]
+            data[name] = current + [v for v in whole[name] if v not in current]
         elif value == "":
             continue
         else:

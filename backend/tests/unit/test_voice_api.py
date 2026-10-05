@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import time
 from collections.abc import AsyncIterator, Callable
 from types import SimpleNamespace
 from typing import Any
@@ -122,25 +123,31 @@ STALL_BEFORE_HEADERS = None
 class FakeSpeech:
     """client.audio.speech: each call answers with the next scripted stream.
 
-    A None entry stalls before the response headers arrive, as most slow requests did in the spike.
+    A None entry stalls before the response headers arrive, as most slow requests did in the spike;
+    an exception entry is raised, as a 429 or 503 would be.
     """
 
-    def __init__(self, *responses: FakeEventStream | None) -> None:
+    def __init__(self, *responses: FakeEventStream | Exception | None) -> None:
         self._responses = list(responses)
         self.calls: list[dict[str, Any]] = []
+        self.sent_at: list[float] = []
 
     async def complete_async(self, **kwargs: Any) -> FakeEventStream:
         self.calls.append(kwargs)
+        self.sent_at.append(time.perf_counter())
         response = self._responses[len(self.calls) - 1]
         if response is None:
             await asyncio.sleep(STALL_S)
             raise AssertionError("the stalled request should have been cancelled")
+        if isinstance(response, Exception):
+            raise response
         return response
 
 
-def mistral_synthesizer(speech: FakeSpeech) -> MistralSynthesizer:
+def mistral_synthesizer(speech: FakeSpeech, **options: Any) -> MistralSynthesizer:
     client: Any = SimpleNamespace(audio=SimpleNamespace(speech=speech))
-    return MistralSynthesizer(client, "voxtral-mini-tts-2603", first_chunk_timeout_s=TIMEOUT_S)
+    options.setdefault("first_chunk_timeout_s", TIMEOUT_S)
+    return MistralSynthesizer(client, "voxtral-mini-tts-2603", **options)
 
 
 # ------------------------------------------------------------------ MistralSynthesizer
@@ -184,6 +191,54 @@ async def test_two_stalls_raise_timeout_error():
 
     with pytest.raises(TimeoutError):
         await mistral_synthesizer(speech).synthesize("Hello.", "voice-1")
+    assert len(speech.calls) == 2
+
+
+async def test_parallel_start_races_two_requests_and_bills_both():
+    healthy = FakeEventStream()
+    speech = FakeSpeech(STALL_BEFORE_HEADERS, healthy)
+    billed: list[int] = []
+    synthesizer = mistral_synthesizer(
+        speech, first_chunk_timeout_s=STALL_S, hedge_after_s=STALL_S, parallel_start=2
+    )
+
+    async with asyncio.timeout(1.0):  # one request at a time would wait out the 10 s stall
+        chunks = [chunk async for chunk in synthesizer.stream("Hello.", "voice-1", billed.append)]
+
+    assert chunks == CHUNKS
+    assert len(speech.calls) == 2
+    assert billed == [6, 6]
+
+
+async def test_a_failed_request_is_replaced_after_the_pause():
+    speech = FakeSpeech(RuntimeError("429"), FakeEventStream())
+    synthesizer = mistral_synthesizer(speech, retry_pause_s=0.1, hedge_after_s=STALL_S)
+
+    pcm = await synthesizer.synthesize("Hello.", "voice-1")
+
+    assert pcm == b"".join(CHUNKS)
+    assert speech.sent_at[1] - speech.sent_at[0] >= 0.1
+
+
+async def test_a_racing_request_still_wins_while_a_failed_one_waits_its_pause():
+    healthy = FakeEventStream(stall_s=0.02)
+    speech = FakeSpeech(RuntimeError("503"), healthy)
+    synthesizer = mistral_synthesizer(
+        speech, first_chunk_timeout_s=1.0, parallel_start=2, max_attempts=3, retry_pause_s=STALL_S
+    )
+
+    async with asyncio.timeout(1.0):
+        pcm = await synthesizer.synthesize("Hello.", "voice-1")
+
+    assert pcm == b"".join(CHUNKS)
+    assert len(speech.calls) == 2  # the replacement was cancelled before it was sent
+
+
+async def test_the_last_error_is_raised_when_every_request_fails():
+    speech = FakeSpeech(RuntimeError("503"), RuntimeError("503"))
+
+    with pytest.raises(RuntimeError):
+        await mistral_synthesizer(speech, retry_pause_s=0.0).synthesize("Hello.", "voice-1")
     assert len(speech.calls) == 2
 
 
@@ -236,8 +291,8 @@ def test_speak_answers_404_for_an_unknown_agent():
     assert synthesizer.requests == []
 
 
-@pytest.mark.parametrize("text", ["", "x" * 401])
-def test_speak_rejects_text_outside_1_to_400_characters(text):
+@pytest.mark.parametrize("text", ["", "x" * 2001])
+def test_speak_rejects_text_outside_1_to_2000_characters(text):
     response = make_client(FakeSynthesizer()).post(
         "/voice/speak", json={"agent": "concierge", "language": "en", "text": text}
     )

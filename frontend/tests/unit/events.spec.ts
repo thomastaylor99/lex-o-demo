@@ -11,6 +11,7 @@ const FIXTURE = path.join(__dirname, "..", "fixtures", "stream-events.json");
 const TYPES = {
   "turn.started": true,
   "text.delta": true,
+  "text.done": true,
   "tool.started": true,
   "tool.finished": true,
   "line.play": true,
@@ -50,6 +51,7 @@ function expectReadable(event: StreamEvent): void {
       expect(typeof event.agent).toBe("string");
       break;
     case "text.delta":
+    case "text.done":
       expect([typeof event.agent, typeof event.text]).toEqual(["string", "string"]);
       break;
     case "tool.started":

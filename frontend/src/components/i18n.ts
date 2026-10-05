@@ -1,15 +1,12 @@
 /** Interface labels in the conversation language, and the formatting that depends on it. */
 
 import type { AgentActivity } from "@/lib/voice-agent";
-import type { BeautyProfile, Language } from "@/lib/events";
+import type { BeautyProfile, Language, ProductFeedback, Verdict } from "@/lib/events";
 
 const LABELS = {
   en: {
     advisor: "Beauty advisor",
     begin: "Begin",
-    welcomeTitle: "Your beauty advisor,",
-    welcomeTitleItalic: "by voice.",
-    welcomeBody: "Tell us about your skin. We listen, ask the right questions and suggest what suits you.",
     welcomeNote: "Click to begin. Your voice is not recorded.",
     repliedIn: "Replied in",
     you: "You",
@@ -39,11 +36,22 @@ const LABELS = {
     savedWithConsent: "Saved with your consent",
     notSaved: "Not saved",
     fragranceFree: "Fragrance-free",
+    moreAbout: "More about",
+    aboutProduct: "About this product",
+    howToUse: "How to use",
+    scanForProduct: "Scan for the product page",
+    productPage: "Product page",
+    per100ml: "per 100 ml",
+    close: "Close",
+    previous: "Previous",
+    next: "Next",
     end: "End",
     // Frost skin
     avgReply: "Avg reply",
     p90: "p90",
     cost: "Cost",
+    duration: "Duration",
+    thisConversation: "This conversation",
     restart: "Restart",
     camera: "Camera",
     cameraPreview: "Camera preview",
@@ -63,6 +71,9 @@ const LABELS = {
     rowBudget: "Budget",
     rowRoutine: "Routine size",
     rowHair: "Hair",
+    rowAge: "Age range",
+    rowFeedback: "Product feedback",
+    verdict: { liked: "liked", disliked: "disliked", mixed: "mixed" } satisfies Record<Verdict, string>,
     languageName: { en: "English", fr: "French" } satisfies Record<Language, string>,
     notCaptured: "Not captured yet",
     notReactive: "Not reactive",
@@ -86,13 +97,17 @@ const LABELS = {
     exampleOffer: "Example offer",
     validUntil: "Valid until",
     showInStore: "Show this code in store",
+    emailLabel: "Your email, for the recap",
+    emailPlaceholder: "name@example.com",
+    emailSend: "See my recap",
+    emailPreparing: "Preparing your recap",
+    emailInvalid: "Check the address",
+    emailFailed: "Something went wrong, try again",
+    emailDismiss: "No thanks",
   },
   fr: {
     advisor: "Conseil beauté",
     begin: "Commencer",
-    welcomeTitle: "Votre conseillère beauté,",
-    welcomeTitleItalic: "à la voix.",
-    welcomeBody: "Parlez-nous de votre peau. Nous écoutons, posons les bonnes questions et proposons ce qui vous convient.",
     welcomeNote: "Cliquez pour commencer. Votre voix n'est pas enregistrée.",
     repliedIn: "Réponse en",
     you: "Vous",
@@ -122,11 +137,22 @@ const LABELS = {
     savedWithConsent: "Enregistré avec votre accord",
     notSaved: "Non enregistré",
     fragranceFree: "Sans parfum",
+    moreAbout: "En savoir plus sur",
+    aboutProduct: "À propos du produit",
+    howToUse: "Conseils d'utilisation",
+    scanForProduct: "Scannez pour la fiche produit",
+    productPage: "Fiche produit",
+    per100ml: "les 100 ml",
+    close: "Fermer",
+    previous: "Précédent",
+    next: "Suivant",
     end: "Terminer",
     // Frost skin
     avgReply: "Réponse moy.",
     p90: "p90",
     cost: "Coût",
+    duration: "Durée",
+    thisConversation: "Cette conversation",
     restart: "Recommencer",
     camera: "Caméra",
     cameraPreview: "Aperçu caméra",
@@ -146,6 +172,9 @@ const LABELS = {
     rowBudget: "Budget",
     rowRoutine: "Routine",
     rowHair: "Cheveux",
+    rowAge: "Tranche d'âge",
+    rowFeedback: "Avis produits",
+    verdict: { liked: "aimé", disliked: "pas aimé", mixed: "mitigé" } satisfies Record<Verdict, string>,
     languageName: { en: "Anglais", fr: "Français" } satisfies Record<Language, string>,
     notCaptured: "Pas encore renseigné",
     notReactive: "Non réactive",
@@ -169,6 +198,13 @@ const LABELS = {
     exampleOffer: "Offre d'exemple",
     validUntil: "Valable jusqu'au",
     showInStore: "Présentez ce code en magasin",
+    emailLabel: "Votre e-mail, pour le récapitulatif",
+    emailPlaceholder: "nom@exemple.fr",
+    emailSend: "Voir mon récapitulatif",
+    emailPreparing: "Préparation du récapitulatif",
+    emailInvalid: "Vérifiez l'adresse",
+    emailFailed: "Un problème est survenu, réessayez",
+    emailDismiss: "Non merci",
   },
 } as const;
 
@@ -212,6 +248,34 @@ export function routineStep(step: string, language: Language): string {
   return ROUTINE_STEPS[language][step] ?? step;
 }
 
+const TEXTURES: Record<Language, Record<string, string>> = {
+  en: {
+    rich_cream: "Rich cream",
+    light_cream: "Light cream",
+    gel_cream: "Gel-cream",
+    fluid: "Fluid",
+    foam: "Foam",
+    serum: "Serum",
+    oil: "Oil",
+    shampoo: "Shampoo",
+  },
+  fr: {
+    rich_cream: "Crème riche",
+    light_cream: "Crème légère",
+    gel_cream: "Gel-crème",
+    fluid: "Fluide",
+    foam: "Mousse",
+    serum: "Sérum",
+    oil: "Huile",
+    shampoo: "Shampooing",
+  },
+};
+
+/** A catalogue texture ("rich_cream") as the screen says it. */
+export function textureName(texture: string, language: Language): string {
+  return TEXTURES[language][texture] ?? texture.replaceAll("_", " ");
+}
+
 const PROFILE_WORDS: Record<Language, Record<string, string>> = {
   en: {
     dry: "Dry skin",
@@ -241,6 +305,11 @@ const PROFILE_WORDS: Record<Language, Record<string, string>> = {
     wavy: "Wavy hair",
     curly: "Curly hair",
     coily: "Coily hair",
+    under_30: "Under 30",
+    "30s": "30s",
+    "40s": "40s",
+    "50s": "50s",
+    "60_plus": "60 and over",
   },
   fr: {
     dry: "Peau sèche",
@@ -270,12 +339,26 @@ const PROFILE_WORDS: Record<Language, Record<string, string>> = {
     wavy: "Cheveux ondulés",
     curly: "Cheveux bouclés",
     coily: "Cheveux crépus",
+    under_30: "Moins de 30 ans",
+    "30s": "30 à 39 ans",
+    "40s": "40 à 49 ans",
+    "50s": "50 à 59 ans",
+    "60_plus": "60 ans et plus",
   },
 };
 
 /** One profile value (skin type, concern, budget band...) in words, or null when unset. */
 export function profileWord(key: string | null | undefined, language: Language): string | null {
   return key ? (PROFILE_WORDS[language][key] ?? key) : null;
+}
+
+/** A product the visitor uses, as the record shows it: "L'Oréal Paris day cream: too light (disliked)". */
+export function feedbackText(item: ProductFeedback, language: Language): string | null {
+  const name = [item.brand, item.product].filter(Boolean).join(" ");
+  const verdict = item.verdict ? `(${LABELS[language].verdict[item.verdict]})` : null;
+  const detail = [item.reason, verdict].filter(Boolean).join(" ");
+  if (!name || !detail) return name || detail || null;
+  return `${name}${language === "fr" ? " : " : ": "}${detail}`;
 }
 
 /** The profile as human chips, in the order a beauty adviser would read them. */

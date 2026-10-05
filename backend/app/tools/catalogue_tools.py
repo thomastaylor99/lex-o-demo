@@ -13,7 +13,7 @@ from app.catalogue.store import Catalogue
 from app.conversation.agent import Tool, ToolResult, UiEvent
 from app.conversation.session import Session
 from app.lang import Language
-from app.profile.models import BeautyProfile
+from app.profile.models import AgeRange, BeautyProfile
 from app.tools.views import product_view
 
 
@@ -46,6 +46,9 @@ class SearchArgs(BaseModel):
     spf_needed: bool | None = Field(
         default=None, description="True when the visitor needs sun protection."
     )
+    age_range: AgeRange | None = Field(
+        default=None, description="The visitor's age range, when they gave one."
+    )
 
 
 class RoutineArgs(BaseModel):
@@ -65,6 +68,7 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
             max_price_eur=None if args.max_price_eur is None else Decimal(str(args.max_price_eur)),
             fragrance_free=args.fragrance_free,
             spf_needed=args.spf_needed,
+            age_range=args.age_range,
         )
         outcome = search(catalogue.all(), query, session.language)
         views = _views(outcome.products, search_profile(session.profile, query), session.language)

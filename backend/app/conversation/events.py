@@ -24,6 +24,15 @@ class TextDelta(_Event):
     text: str
 
 
+class TextDone(_Event):
+    """The agent's text for one model call is complete (sent before any tool runs and before
+    the turn waits for its observers): the browser speaks it in one request (spec 001)."""
+
+    type: Literal["text.done"] = "text.done"
+    agent: str
+    text: str
+
+
 class ToolStarted(_Event):
     type: Literal["tool.started"] = "tool.started"
     call_id: str
@@ -79,7 +88,8 @@ class TutorialsShown(_Event):
 
 class RecapReady(_Event):
     """The email recap of the discovery, shown as a preview (spec 006). Nothing is sent. The
-    coupon has code, label and valid_until (ISO date)."""
+    coupon has code, label and valid_until (ISO date). POST /sessions/{id}/recap returns it, after
+    the profile with the masked address, once the visitor has typed their address."""
 
     type: Literal["recap.ready"] = "recap.ready"
     email_masked: str
@@ -120,6 +130,7 @@ class ErrorEvent(_Event):
 AnyEvent = (
     TurnStarted
     | TextDelta
+    | TextDone
     | ToolStarted
     | ToolFinished
     | LinePlay

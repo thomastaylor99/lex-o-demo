@@ -2,8 +2,9 @@
  * Plays the agents' speech: raw PCM, float32 little-endian, 24 kHz, mono (spec 001).
  *
  * Sources play strictly in order and without gaps. A source is either a fixed line already in
- * memory or the streamed body of a `/voice/speak` request, which was started as soon as its
- * sentence existed, so later sentences download while earlier ones play.
+ * memory or the streamed body of a `/voice/speak` request, which was started as soon as its reply
+ * was complete, so it downloads while what is queued before it plays. The queue can also hold
+ * a pause (silence before what follows) and a cue (a callback run when playback reaches it).
  */
 
 const SAMPLE_RATE = 24_000;
@@ -16,12 +17,15 @@ export type Source =
   | { kind: "buffer"; data: ArrayBuffer; tag: SoundKind }
   | { kind: "stream"; body: Promise<ReadableStream<Uint8Array> | null>; tag: SoundKind };
 
+type Queued = Source | { kind: "pause"; seconds: number } | { kind: "cue"; callback: () => void };
+
 export class PcmPlayer {
   private context: AudioContext | null = null;
-  private queue: Source[] = [];
+  private queue: Queued[] = [];
   private pumping = false;
   private nextStart = 0;
   private scheduled = new Set<AudioBufferSourceNode>();
+  private cues = new Set<ReturnType<typeof setTimeout>>();
   private readers = new Set<ReadableStreamDefaultReader<Uint8Array>>();
   /** Bumped by clear(), so a pump from before the clear stops at its next step. */
   private generation = 0;
@@ -50,6 +54,18 @@ export class PcmPlayer {
     void this.pump();
   }
 
+  /** Leave `seconds` of silence between what is queued so far and what comes next. */
+  pause(seconds: number): void {
+    this.queue.push({ kind: "pause", seconds });
+    void this.pump();
+  }
+
+  /** Run `callback` when playback reaches this point of the queue. */
+  cue(callback: () => void): void {
+    this.queue.push({ kind: "cue", callback });
+    void this.pump();
+  }
+
   /** Call back once everything queued so far has finished playing. */
   whenDrained(callback: () => void): void {
     if (this.idle()) setTimeout(callback, 0);
@@ -70,6 +86,8 @@ export class PcmPlayer {
       }
     });
     this.scheduled.clear();
+    this.cues.forEach((timer) => clearTimeout(timer));
+    this.cues.clear();
     this.nextStart = 0;
     this.pumping = false;
     this.onFirstSound = null;
@@ -77,7 +95,7 @@ export class PcmPlayer {
   }
 
   private idle(): boolean {
-    return !this.pumping && this.queue.length === 0 && this.scheduled.size === 0;
+    return !this.pumping && this.queue.length === 0 && this.scheduled.size === 0 && this.cues.size === 0;
   }
 
   private async pump(): Promise<void> {
@@ -88,8 +106,12 @@ export class PcmPlayer {
       const source = this.queue.shift()!;
       if (source.kind === "buffer") {
         this.schedule(new Float32Array(source.data.slice(0, source.data.byteLength - (source.data.byteLength % 4))), source.tag);
-      } else {
+      } else if (source.kind === "stream") {
         await this.playStream(source, generation);
+      } else if (source.kind === "pause") {
+        if (this.context) this.nextStart = Math.max(this.context.currentTime + LEAD_S, this.nextStart) + source.seconds;
+      } else {
+        this.scheduleCue(source.callback);
       }
     }
     if (generation === this.generation) {
@@ -117,7 +139,7 @@ export class PcmPlayer {
         if (whole > 0) this.schedule(new Float32Array(bytes.slice(0, whole).buffer), source.tag);
       }
     } catch {
-      // a cancelled or broken stream ends this sentence; the next one plays
+      // a cancelled or broken stream ends this reply; what follows plays
     } finally {
       this.readers.delete(reader);
     }
@@ -144,6 +166,17 @@ export class PcmPlayer {
       this.onFirstSound = null;
       report(performance.now() + (startAt - context.currentTime) * 1000, tag);
     }
+  }
+
+  /** The cue runs when what is scheduled so far has played; until then the player is not drained. */
+  private scheduleCue(callback: () => void): void {
+    const waitMs = this.context ? Math.max(0, (this.nextStart - this.context.currentTime) * 1000) : 0;
+    const timer = setTimeout(() => {
+      this.cues.delete(timer);
+      callback();
+      this.checkDrained();
+    }, waitMs);
+    this.cues.add(timer);
   }
 
   private checkDrained(): void {

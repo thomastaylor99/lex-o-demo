@@ -10,18 +10,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { MicMode } from "@/lib/api";
-import type { Basket, BeautyProfile, ProductView, TutorialView } from "@/lib/events";
+import { looksLikeEmail } from "@/lib/email";
+import type { Basket, BeautyProfile, ProductFeedback, ProductView, TutorialView } from "@/lib/events";
 import {
   EMPTY_REPLY_STATS,
   replyStats,
   type AgentIdentity,
+  type EmailResult,
   type ProductGroup,
   type Recap,
   type TranscriptEntry,
   type VoiceAgent,
 } from "@/lib/voice-agent";
 
-type State = Omit<VoiceAgent, "setMode" | "start" | "end" | "pttDown" | "pttUp">;
+type State = Omit<VoiceAgent, "setMode" | "start" | "end" | "pttDown" | "pttUp" | "submitEmail">;
 type Step = { at: number; apply: (s: State) => State };
 
 const AGENTS: AgentIdentity[] = [
@@ -192,8 +194,18 @@ const EMPTY_PROFILE: BeautyProfile = {
   fragrance_free: null,
   hair_type: null,
   hair_concerns: [],
+  age_range: null,
+  product_feedback: [],
   consent: "pending",
   email: null,
+};
+
+/** What the visitor says of the day cream they use now (spec 002, product feedback). */
+const DAY_CREAM_FEEDBACK: ProductFeedback = {
+  brand: "L'Oréal Paris",
+  product: "day cream",
+  verdict: "disliked",
+  reason: "a bit too light",
 };
 
 const INITIAL: State = {
@@ -215,9 +227,11 @@ const INITIAL: State = {
   error: null,
 };
 
-/** Reply times (ms) and running conversation cost (EUR) after each turn of the script. The recap turn adds a model call. */
-const REPLY_MS = [450, 600, 520, 640, 580, 610, 560, 690];
-const COST_EUR = [0.004, 0.009, 0.015, 0.021, 0.026, 0.031, 0.035, 0.042];
+/** Reply times (ms) and running conversation cost (EUR) after each turn of the script. */
+const REPLY_MS = [450, 600, 560, 520, 640, 580, 610];
+const COST_EUR = [0.004, 0.009, 0.013, 0.018, 0.024, 0.029, 0.034];
+/** The cost once the recap is written: the writer's model call, after the address is typed. */
+const RECAP_COST_EUR = 0.037;
 
 // ------------------------------------------------------------------ script builders
 
@@ -326,11 +340,13 @@ const line = (at: number, agent: string, text: string): Step => ({
   }),
 });
 
+/** The new agent joins and gets ready to speak, as the live engine shows it (HANDOVER_PAUSE_S). */
 const handover = (at: number, to: AgentIdentity): Step => ({
   at,
   apply: (s) => ({
     ...s,
     activeAgent: to,
+    activity: "thinking",
     transcript: [...s.transcript, { id: nextId(), kind: "handover", agent: to.id, text: to.displayName, final: true }],
   }),
 });
@@ -344,65 +360,79 @@ function script(): Step[] {
     { at: 7000, apply: set({ activity: "thinking" }) },
     line(7450, "concierge", "Lovely. Let me bring in our skincare expert."),
     { at: 7450, apply: reply(0) },
-    handover(9000, skincare),
+    // The expert joins when the concierge's line ends, and speaks 1.2 s later.
+    handover(9900, skincare),
     ...say(
-      9300,
+      11100,
       "skincare",
       "I'm L'Oréal's AI skincare expert. Tight skin is usually asking for hydration. Does it also react or redden easily?",
     ),
-    { at: 9800, apply: updateProfile({ skin_type: "dry" }) },
-    ...hear(12600, "It's dry, mostly on my cheeks, and it gets red quite easily."),
-    { at: 15400, apply: set({ activity: "thinking" }) },
-    { at: 15500, apply: updateProfile({ skin_type: "dry", sensitive: true, concerns: ["sensitivity"] }) },
-    { at: 16000, apply: reply(1) },
-    ...say(16000, "skincare", "Thank you, that helps. Do you enjoy rich creams, and is there a budget you'd like to keep to?"),
-    ...hear(19600, "I love rich creams, around twenty five euros."),
-    { at: 21600, apply: set({ activity: "thinking" }) },
-    line(22100, "skincare", "Let me look through our range for you."),
-    { at: 22100, apply: reply(2) },
-    { at: 22900, apply: show("recommendation", [TOLERIANE, CERAVE_CREAM, CERAVE_SPF30], TOLERIANE.id) },
-    { at: 23000, apply: updateProfile({ texture_preference: "rich", budget_band: "20_to_40" }) },
+    { at: 11600, apply: updateProfile({ skin_type: "dry" }) },
+    ...hear(14400, "It's dry, mostly on my cheeks, and it gets red quite easily."),
+    { at: 17200, apply: set({ activity: "thinking" }) },
+    { at: 17300, apply: updateProfile({ skin_type: "dry", sensitive: true, concerns: ["sensitivity"] }) },
+    { at: 17800, apply: reply(1) },
+    ...say(17800, "skincare", "Thank you, that helps. Which moisturiser do you use at the moment, and how do you find it?"),
+    ...hear(21400, "A L'Oréal Paris day cream, I don't remember which one. I find it a bit too light, I love rich creams."),
+    { at: 25800, apply: set({ activity: "thinking" }) },
+    { at: 26000, apply: updateProfile({ texture_preference: "rich", product_feedback: [DAY_CREAM_FEEDBACK] }) },
+    { at: 26300, apply: reply(2) },
+    ...say(26300, "skincare", "Thanks, that's useful. Last question, only if you're happy to share: which decade are you in?"),
+    ...hear(30400, "I'm in my thirties, and I'd like to stay around twenty five euros."),
+    { at: 33400, apply: set({ activity: "thinking" }) },
+    line(33900, "skincare", "Let me look through our range for you."),
+    { at: 33900, apply: reply(3) },
+    { at: 34700, apply: show("recommendation", [TOLERIANE, CERAVE_CREAM, CERAVE_SPF30], TOLERIANE.id) },
+    { at: 34800, apply: updateProfile({ age_range: "30s", budget_band: "20_to_40" }) },
     ...say(
-      23600,
+      35400,
       "skincare",
-      "My top pick for you is La Roche-Posay Toleriane Sensitive Rich Moisturiser. It reduces tightness, dryness and occasional redness while protecting your skin's barrier. Two alternatives are on screen. What do you think?",
+      "Since your day cream felt too light, my top pick is La Roche-Posay Toleriane Sensitive Rich Moisturiser. It reduces tightness, dryness and occasional redness while protecting your skin's barrier. Two alternatives are on screen. What do you think?",
     ),
-    ...hear(31000, "The first one sounds perfect, I'll take it."),
-    { at: 33000, apply: set({ activity: "thinking" }) },
-    { at: 33400, apply: addToBasket(TOLERIANE) },
-    { at: 33600, apply: show("routine", [CERAVE_CLEANSER, ANTHELIOS], null) },
-    { at: 33700, apply: reply(3) },
+    ...hear(42800, "The first one sounds perfect, I'll take it."),
+    { at: 44800, apply: set({ activity: "thinking" }) },
+    { at: 45200, apply: addToBasket(TOLERIANE) },
+    { at: 45400, apply: show("routine", [CERAVE_CLEANSER, ANTHELIOS], null) },
+    { at: 45500, apply: reply(4) },
     ...say(
-      33700,
+      45500,
       "skincare",
       "Lovely choice, it's in your selection. To complete your routine, the CeraVe Hydrating Cleanser cleanses without leaving skin tight or dry. Shall I add it?",
     ),
-    ...hear(40000, "Yes please, add the cleanser."),
-    { at: 41600, apply: set({ activity: "thinking" }) },
-    { at: 42000, apply: addToBasket(CERAVE_CLEANSER) },
-    { at: 42100, apply: reply(4) },
-    { at: 42300, apply: showTutorials(TUTORIALS) },
+    ...hear(51800, "Yes please, add the cleanser."),
+    { at: 53400, apply: set({ activity: "thinking" }) },
+    { at: 53800, apply: addToBasket(CERAVE_CLEANSER) },
+    { at: 53900, apply: reply(5) },
+    { at: 54100, apply: showTutorials(TUTORIALS) },
     ...say(
-      42500,
+      54300,
       "skincare",
       "Done, your routine is complete. Tutorials from CeraVe and La Roche-Posay are on screen, with a code to scan to watch them on your phone. Would you like me to save your skin profile and routine for next time?",
     ),
-    ...hear(50000, "Yes, please save it. My name is Camille."),
-    { at: 52200, apply: set({ activity: "thinking" }) },
-    { at: 52600, apply: updateProfile({ first_name: "Camille", routine_size: "minimal", consent: "given" }) },
-    { at: 52700, apply: reply(5) },
-    ...say(52700, "skincare", "Thank you, Camille, your profile and routine are saved. Would you like a recap by email, with an in-store offer?"),
-    ...hear(57400, "Yes, send it to camille dot martin at example dot com."),
-    { at: 60100, apply: set({ activity: "thinking" }) },
-    { at: 60500, apply: reply(6) },
-    ...say(60500, "skincare", "Let me read it back: camille dot martin at example dot com. Is that right?"),
-    ...hear(64400, "Yes, that's right."),
-    { at: 65600, apply: set({ activity: "thinking" }) },
-    { at: 66300, apply: updateProfile({ email: RECAP.emailMasked }) },
-    { at: 66400, apply: showRecap(RECAP) },
-    { at: 66500, apply: reply(7) },
-    ...say(66700, "skincare", "Perfect, Camille, your recap and your in-store offer are on screen."),
-    { at: 70000, apply: set({ activity: "listening" }) },
+    ...hear(61800, "Yes, please save it. My name is Camille."),
+    { at: 64000, apply: set({ activity: "thinking" }) },
+    { at: 64400, apply: updateProfile({ first_name: "Camille", routine_size: "minimal", consent: "given" }) },
+    { at: 64500, apply: reply(6) },
+    ...say(
+      64500,
+      "skincare",
+      "Thank you, Camille, your profile and routine are saved. To receive a recap with an in-store offer, type your email in the field on the screen.",
+    ),
+    { at: 70400, apply: set({ activity: "listening" }) },
+  ];
+}
+
+/** What follows the address typed on screen (`submitEmail`), in ms after it is sent. */
+function recapSteps(email: string): Step[] {
+  const [local = "", domain = ""] = email.trim().toLowerCase().split("@");
+  const emailMasked = `${local.charAt(0)}***@${domain}`; // as the backend masks it
+  return [
+    { at: 0, apply: set({ activity: "thinking" }) },
+    { at: 900, apply: updateProfile({ email: emailMasked }) },
+    { at: 900, apply: showRecap({ ...RECAP, emailMasked }) },
+    { at: 900, apply: set({ costEur: RECAP_COST_EUR }) },
+    line(1000, "skincare", "Thank you. Your recap and your in-store offer are on screen."),
+    { at: 4200, apply: set({ activity: "listening" }) },
   ];
 }
 
@@ -435,5 +465,13 @@ export function useMockVoiceAgent(): VoiceAgent {
   const pttDown = useCallback(() => setState((s) => ({ ...s, activity: "listening" })), []);
   const pttUp = useCallback(() => setState((s) => ({ ...s, activity: "thinking" })), []);
 
-  return { ...state, start, end, setMode, pttDown, pttUp };
+  const submitEmail = useCallback(async (email: string): Promise<EmailResult> => {
+    if (!looksLikeEmail(email)) return { ok: false, error: "invalid_email" };
+    for (const step of recapSteps(email)) {
+      timers.current.push(window.setTimeout(() => setState(step.apply), step.at));
+    }
+    return { ok: true };
+  }, []);
+
+  return { ...state, start, end, setMode, pttDown, pttUp, submitEmail };
 }

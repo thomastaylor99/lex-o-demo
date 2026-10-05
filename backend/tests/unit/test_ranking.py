@@ -3,9 +3,10 @@
 from decimal import Decimal
 from pathlib import Path
 
-from app.catalogue.models import Category, SkinType, TexturePreference
+from app.catalogue.models import Category, Concern, SkinType, TexturePreference
 from app.catalogue.ranking import SearchQuery, search
 from app.catalogue.store import Catalogue
+from app.profile.models import AgeRange
 
 FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "catalogue_fixture.json"
 
@@ -80,3 +81,29 @@ def test_results_never_exceed_limit():
     outcome = search(catalogue.all(), query, "en", limit=2)
 
     assert len(outcome.products) <= 2
+
+
+def test_from_forty_the_age_range_puts_firmness_care_first():
+    catalogue = _load_fixture()
+    query = SearchQuery(category=Category.MOISTURISER, skin_type=SkinType.NORMAL)
+
+    without_age = search(catalogue.all(), query, "en")
+    in_forties = query.model_copy(update={"age_range": AgeRange.FORTIES})
+    forties = search(catalogue.all(), in_forties, "en")
+
+    assert without_age.products[0].id == "fx-light-dry"
+    assert forties.products[0].id == "fx-luxe-firm"
+
+
+def test_a_concern_the_visitor_names_outranks_the_age_range():
+    catalogue = _load_fixture()
+    query = SearchQuery(
+        category=Category.MOISTURISER,
+        skin_type=SkinType.DRY,
+        concerns=[Concern.HYDRATION],
+        age_range=AgeRange.FIFTIES,
+    )
+
+    outcome = search(catalogue.all(), query, "en")
+
+    assert outcome.products[0].id != "fx-luxe-firm"

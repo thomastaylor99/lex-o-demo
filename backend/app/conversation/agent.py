@@ -82,6 +82,12 @@ class AgentConfig:
     lines: dict[str, dict[Language, str]]
     context_block: Callable[[Session], str]
     tool_fillers: dict[str, str] = field(default_factory=dict)
+    # True when a reply without a tool call promised one ("let me find..."): the loop then makes
+    # one more call that must use a tool, so the agent acts without waiting for the visitor.
+    promises_action: Callable[[str], bool] | None = None
+    # Reads a reply's whole text before it is spoken and returns what to say: the same text, or
+    # a replacement. The browser speaks and shows `text.done`, so a replacement is seamless.
+    vet_reply: Callable[[Session, str], str] | None = None
     transfer_targets: tuple[str, ...] = ()
 
     def tool(self, name: str) -> Tool | None:

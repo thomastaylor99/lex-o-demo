@@ -91,3 +91,23 @@ export function ExternalIcon({ size = 16 }: { size?: number }) {
     </Icon>
   );
 }
+
+/** More about a product: a plus. */
+export function PlusIcon({ size = 16 }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
+/** Closes a sheet: a cross. */
+export function CloseIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </Icon>
+  );
+}

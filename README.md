@@ -36,7 +36,7 @@ Open http://localhost:3100 in Chrome, click Begin and allow the microphone.
 - `?autostart=1` skips the welcome screen, for rehearsals. Chrome may hold the audio until the page gets a click.
 - Restart, in the header, ends the conversation and returns to the welcome screen for the next visitor.
 - The frontend calls the backend at `NEXT_PUBLIC_API_URL` (default http://localhost:8000). Set it before `npm run build`, which bakes it into the bundle.
-- The UI templates stay under http://localhost:3100/templates.
+- The UI templates stay under http://localhost:3100/templates, and the welcome mockups under http://localhost:3100/welcome.
 
 ## Test the voice flow in the terminal
 

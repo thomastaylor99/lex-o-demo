@@ -3,6 +3,9 @@
 The PCM is float32 little-endian, 24 kHz, mono. About one request in ten stalls before its first
 chunk, sometimes for 10 s, so a slow request gets a second one raced against it (hedging) and
 the first to deliver audio wins. Every request started is billed, so `on_request` reports each one.
+With `parallel_start` 2, two requests race from the start, which hides most slow first chunks for
+the price of one more request. The silence a voice puts before its first word is dropped as the
+stream arrives (tts-3 starts with about 255 ms of it).
 """
 
 import asyncio
@@ -16,6 +19,8 @@ import structlog
 from mistralai.client import Mistral
 from mistralai.client.models import SpeechStreamEvents
 from mistralai.client.utils.eventstreaming import EventStreamAsync
+
+from app.voice.trim import LeadingSilenceTrimmer
 
 AUDIO_FORMAT = "f32le;rate=24000;channels=1"
 
@@ -36,8 +41,10 @@ class Synthesizer(Protocol):
 class MistralSynthesizer:
     """Streamed TTS over `client.audio.speech`, hedged when the first chunk is late.
 
-    Each attempt gets `first_chunk_timeout_s` to deliver its first chunk. A new attempt starts
-    every `hedge_after_s` (defaults to the timeout) until one delivers or `max_attempts` ran.
+    Each attempt gets `first_chunk_timeout_s` to deliver its first chunk. `parallel_start`
+    attempts start together, then a new one every `hedge_after_s` (defaults to the timeout) until
+    one delivers or `max_attempts` ran. An attempt that fails is replaced after `retry_pause_s`,
+    while the others keep running.
     """
 
     def __init__(
@@ -48,12 +55,16 @@ class MistralSynthesizer:
         *,
         hedge_after_s: float | None = None,
         max_attempts: int = 2,
+        parallel_start: int = 1,
+        retry_pause_s: float = 0.2,
     ) -> None:
         self._client = client
         self._model = model
         self._first_chunk_timeout_s = first_chunk_timeout_s
         self._hedge_after_s = first_chunk_timeout_s if hedge_after_s is None else hedge_after_s
         self._max_attempts = max_attempts
+        self._parallel_start = max(1, min(parallel_start, max_attempts))
+        self._retry_pause_s = retry_pause_s
 
     async def stream(
         self, text: str, voice_id: str, on_request: RequestHook | None = None
@@ -69,10 +80,14 @@ class MistralSynthesizer:
         events, chunk = await self._start(text, voice_id, on_request)
         first_chunk_ms = round((time.perf_counter() - started) * 1000)
         logger.info("tts_first_chunk", voice_id=voice_id, first_chunk_ms=first_chunk_ms)
+        trimmer = LeadingSilenceTrimmer()
         async with events:
             while chunk is not None:
-                yield chunk
+                if audio := trimmer.feed(chunk):
+                    yield audio
                 chunk = await _next_audio(events)
+            if rest := trimmer.flush():
+                yield rest
 
     async def synthesize(self, text: str, voice_id: str) -> bytes:
         return b"".join([chunk async for chunk in self.stream(text, voice_id)])
@@ -84,25 +99,32 @@ class MistralSynthesizer:
         pending: set[asyncio.Task[tuple[SpeechEvents, bytes | None]]] = set()
         error: BaseException | None = None
         attempts = 0
+
+        def launch(delay_s: float = 0.0) -> None:
+            nonlocal attempts
+            attempts += 1
+            if attempts > self._parallel_start:
+                logger.warning("tts_hedge", voice_id=voice_id, attempt=attempts)
+            pending.add(asyncio.create_task(self._attempt(text, voice_id, on_request, delay_s)))
+
         try:
-            while True:
-                if attempts < self._max_attempts:
-                    if attempts:
-                        logger.warning("tts_hedge", voice_id=voice_id, attempt=attempts + 1)
-                    pending.add(asyncio.create_task(self._attempt(text, voice_id)))
-                    attempts += 1
-                    if on_request is not None:
-                        on_request(len(text))
-                if not pending:
-                    break
+            for _ in range(self._parallel_start):
+                launch()
+            while pending:
                 timeout = self._hedge_after_s if attempts < self._max_attempts else None
                 done, pending = await asyncio.wait(
                     pending, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
                 )
+                if not done:
+                    launch()  # every attempt is slow: race one more
+                    continue
                 winner: tuple[SpeechEvents, bytes | None] | None = None
                 for task in done:
                     if task.exception() is not None:
                         error = task.exception()
+                        if attempts < self._max_attempts:
+                            # A 429 or 503 burst needs a breath; the other attempts keep running.
+                            launch(self._retry_pause_s)
                     elif winner is None:
                         winner = task.result()
                     else:
@@ -118,8 +140,17 @@ class MistralSynthesizer:
             raise TimeoutError(f"no first TTS chunk after {attempts} attempts")
         raise error
 
-    async def _attempt(self, text: str, voice_id: str) -> tuple[SpeechEvents, bytes | None]:
-        """Open one stream and read its first chunk within the deadline; close it on any failure."""
+    async def _attempt(
+        self, text: str, voice_id: str, on_request: RequestHook | None, delay_s: float = 0.0
+    ) -> tuple[SpeechEvents, bytes | None]:
+        """Open one stream and read its first chunk within the deadline; close it on any failure.
+
+        A retry waits `delay_s` first, and is billed only once it is sent.
+        """
+        if delay_s:
+            await asyncio.sleep(delay_s)
+        if on_request is not None:
+            on_request(len(text))
         events: SpeechEvents | None = None
         try:
             async with asyncio.timeout(self._first_chunk_timeout_s):

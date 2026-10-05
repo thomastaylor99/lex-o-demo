@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Cormorant_Garamond, Geist, Inter_Tight } from "next/font/google";
 import "./globals.css";
 
 // Geist is the live skin's typeface, read through --font-frost (src/skins/frost/theme.ts).
-// The /templates pages load their own fonts.
+// Cormorant Garamond and Inter Tight are its welcome screen's (src/welcome/eclipse/theme.ts).
+// The /templates and /welcome pages load their own fonts.
 const geist = Geist({ subsets: ["latin"], variable: "--font-frost" });
+const eclipseDisplay = Cormorant_Garamond({
+  weight: ["300", "400", "500"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-eclipse-display",
+});
+const eclipseBody = Inter_Tight({ subsets: ["latin"], variable: "--font-eclipse-body" });
 
 export const metadata: Metadata = {
   title: "Beauty voice advisor",
@@ -13,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geist.variable} h-full antialiased`}>
+    <html lang="en" className={`${geist.variable} ${eclipseDisplay.variable} ${eclipseBody.variable} h-full antialiased`}>
       <body className="min-h-full">{children}</body>
     </html>
   );

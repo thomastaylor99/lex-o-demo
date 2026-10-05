@@ -12,6 +12,8 @@ from app.catalogue.store import Catalogue
 from app.conversation.agent import AgentConfig, force
 from app.conversation.session import Session
 from app.lang import LANGUAGES
+from app.profile.models import Consent
+from app.recap.service import RECAP_FLAG
 from app.settings import Settings
 from app.tools import build_tools
 
@@ -135,7 +137,7 @@ def test_skincare_identity():
     assert skincare.transfer_targets == ()
 
 
-def test_skincare_has_the_six_expert_tools_in_order():
+def test_skincare_has_the_five_expert_tools_in_order():
     skincare = build_skincare(MODEL, _tools())
 
     assert [tool.name for tool in skincare.tools] == [
@@ -144,7 +146,6 @@ def test_skincare_has_the_six_expert_tools_in_order():
         "add_to_basket",
         "save_profile",
         "show_tutorials",
-        "send_recap",
     ]
 
 
@@ -155,20 +156,33 @@ def test_skincare_instructions_mention_each_of_its_tools():
         assert tool_name in skincare.instructions
 
 
-def test_skincare_tool_fillers_point_at_the_search_and_recap_filler_lines():
+def test_skincare_tool_fillers_point_at_the_search_filler_line():
     skincare = build_skincare(MODEL, _tools())
 
     assert skincare.tool_fillers == {
         "search_products": "filler_search",
         "get_routine": "filler_search",
-        "send_recap": "filler_recap",
     }
 
 
-def test_skincare_has_exactly_its_filler_lines():
+def test_skincare_has_exactly_its_fixed_lines():
+    """The browser plays the two recap lines around POST /sessions/{id}/recap."""
     skincare = build_skincare(MODEL, _tools())
 
-    assert set(skincare.lines) == {"filler_search", "filler_recap"}
+    assert set(skincare.lines) == {"filler_search", "filler_recap", "recap_ready", "recap_failed"}
+
+
+def test_skincare_says_it_is_an_ai_and_names_the_groupe_only_when_it_applies():
+    instructions = build_skincare(MODEL, _tools()).instructions
+
+    assert (
+        "asks whether they are\n  talking to a person. Do not say it at any other time."
+        in instructions
+    )
+    assert "When the visitor says they use one, thank them for telling you" in instructions
+    assert "they ask you about one, say you can only advise on L'Oréal Groupe" in instructions
+    assert "send_recap" not in instructions
+    assert "type their email address in the field on\n   the screen" in instructions
 
 
 def test_skincare_fixed_line_matches_the_approved_copy():
@@ -180,31 +194,81 @@ def test_skincare_fixed_line_matches_the_approved_copy():
     }
 
 
-def test_skincare_voice_is_the_preset_jane_confident_id_in_both_languages():
+def test_skincare_voice_is_the_preset_jane_neutral_id_in_both_languages():
     skincare = build_skincare(MODEL, _tools())
 
     assert skincare.voices == {
-        "en": "cbe96cf0-85ec-4a10-accb-0b35c93b6dfd",
-        "fr": "cbe96cf0-85ec-4a10-accb-0b35c93b6dfd",
+        "en": "82c99ee6-f932-423f-a4a3-d403c8914b8d",
+        "fr": "82c99ee6-f932-423f-a4a3-d403c8914b8d",
     }
 
 
-@pytest.mark.parametrize("turns", [0, 1, 2, 3])
-def test_skincare_policy_is_auto_below_four_expert_turns(turns):
-    skincare = build_skincare(MODEL, _tools())
-    session = _session(active_since_turn=0, turn_index=turns)
+def _said(*lines: str) -> list[dict[str, str]]:
+    return [{"role": "user", "content": line} for line in lines]
 
+
+@pytest.mark.parametrize("turns", [0, 1, 2, 3, 4, 5])
+def test_skincare_has_no_tools_while_the_diagnosis_is_open(turns):
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(active_since_turn=0, turn_index=turns, history=_said("A moisturiser."))
+
+    assert skincare.tool_choice(session) == "none"
+
+
+def test_skincare_policy_forces_search_once_the_diagnosis_is_complete():
+    skincare = build_skincare(MODEL, _tools())
+    said = _said("I'm 42 and I use a rich cream for my dry skin, which gets red easily.")
+    session = _session(active_since_turn=0, turn_index=0, history=said)
+
+    assert skincare.tool_choice(session) == force("search_products")
+    assert "Diagnosis complete: call search_products now" in skincare.context_block(session)
+
+
+def test_skincare_context_names_one_topic_at_a_time_in_order():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(active_since_turn=1, turn_index=1, history=_said("Hi.", "A moisturiser."))
+    assert "one short question about how their skin usually feels" in skincare.context_block(
+        session
+    )
+
+    session.history += _said("Quite dry, I'd say.")
+    session.turn_index = 2
+    assert "whether their skin reddens" in skincare.context_block(session)
+
+    session.history += _said("No, never.")
+    session.turn_index = 3
+    assert "which moisturiser they use at the moment" in skincare.context_block(session)
+
+    session.history += _said("Nothing special.")
+    session.turn_index = 4
+    assert "whether they prefer a light or a rich texture" in skincare.context_block(session)
+    assert skincare.tool_choice(session) == "none"
+
+    session.history += _said("Light, please.")
+    session.turn_index = 5
+    assert "their age range, saying it is optional" in skincare.context_block(session)
+
+    session.history += _said("I'd rather not say.")
+    session.turn_index = 6
+    assert skincare.tool_choice(session) == force("search_products")
+
+
+def test_skincare_context_drops_the_diagnosis_once_a_search_ran():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(history=_said("A moisturiser."), flags={"last_search_turn": 0})
+
+    assert "Diagnosis" not in skincare.context_block(session)
     assert skincare.tool_choice(session) == "auto"
 
 
-def test_skincare_policy_forces_search_at_four_expert_turns_without_a_search_yet():
+def test_skincare_policy_forces_search_at_six_expert_turns_without_a_search_yet():
     skincare = build_skincare(MODEL, _tools())
-    session = _session(active_since_turn=0, turn_index=4)
+    session = _session(active_since_turn=0, turn_index=6)
 
     assert skincare.tool_choice(session) == force("search_products")
 
 
-def test_skincare_policy_keeps_forcing_search_past_four_turns_until_one_runs():
+def test_skincare_policy_keeps_forcing_search_past_six_turns_until_one_runs():
     skincare = build_skincare(MODEL, _tools())
     session = _session(active_since_turn=2, turn_index=9)
 
@@ -311,3 +375,102 @@ def test_skincare_context_asks_for_tutorials_once_the_routine_is_in_the_basket()
 
     session.flags["shown_tutorials"] = [{"id": "t1"}]
     assert "show_tutorials" not in skincare.context_block(session)
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        "Yes, my email is thomas.taylor",
+        "thomas.taylor@mistral.ai.",
+        "It's camille dot martin at example dot com",
+        "Mon e-mail, c'est camille point martin arobase exemple point fr",
+    ],
+)
+def test_skincare_context_asks_to_type_an_address_said_aloud_after_consent(said: str):
+    skincare = build_skincare(MODEL, _tools())
+    session = _session()
+    session.history.append({"role": "user", "content": said})
+    assert "type it in the field" not in skincare.context_block(session)  # no consent yet
+
+    session.profile.consent = Consent.GIVEN
+    assert "type it in the field on the screen" in skincare.context_block(session)
+
+    session.flags[RECAP_FLAG] = "c***@example.com"
+    block = skincare.context_block(session)
+    assert "type it in the field" not in block
+    assert "The recap and the in-store offer are on screen" in block
+
+
+def test_skincare_context_has_no_email_note_for_other_words():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session()
+    session.profile.consent = Consent.GIVEN
+    session.history.append({"role": "user", "content": "Not so much, I think we are good."})
+
+    assert "type it in the field" not in skincare.context_block(session)
+
+
+@pytest.mark.parametrize(
+    ("reply", "promised"),
+    [
+        (
+            "Let me find a gentle cleanser that pairs well with your new moisturiser. One moment.",
+            True,
+        ),
+        ("Je regarde ce que nous avons pour vous.", True),
+        ("Un instant, je cherche une crème.", True),
+        ("Which skin type do you have?", False),
+        ("My top pick is the Toleriane Sensitive Rich Moisturiser.", False),
+    ],
+)
+def test_skincare_spots_a_reply_that_promises_an_action(reply: str, promised: bool) -> None:
+    skincare = build_skincare(MODEL, _tools())
+    assert skincare.promises_action is not None
+    assert skincare.promises_action(reply) is promised
+
+
+def test_a_diagnosis_reply_that_names_a_product_becomes_the_topic_question():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(active_since_turn=1, turn_index=2, history=_said("Hi.", "A cream."))
+    made_up = "Your search is ready. My top pick is CeraVe Moisturising Cream. What do you think?"
+
+    said = skincare.vet_reply(session, made_up)
+
+    assert said.startswith("How does your skin usually feel by the end of the day")
+
+
+def test_the_handover_turn_keeps_the_introduction_and_the_language():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(
+        language="fr", active_since_turn=1, turn_index=1, history=_said("Une crème.")
+    )
+
+    said = skincare.vet_reply(session, "search_products category moisturiser")
+
+    assert said.startswith("Je suis l'experte soin de L'Oréal")
+    assert said.endswith("sèche, grasse, mixte ou normale ?")
+
+
+def test_a_clean_diagnosis_question_on_its_topic_is_kept():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(active_since_turn=1, turn_index=2, history=_said("Hi.", "Quite dry."))
+    question = "Thanks. Does your skin ever turn red when you apply a cream?"
+
+    assert skincare.vet_reply(session, question) == question
+
+
+def test_a_question_on_another_topic_becomes_the_topic_question():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(active_since_turn=1, turn_index=2, history=_said("Hi.", "Quite dry."))
+
+    said = skincare.vet_reply(session, "Does your skin feel tight after your current cream?")
+
+    assert said == "Does your skin ever redden, sting or react when you apply a cream?"
+
+
+def test_replies_after_the_search_are_never_replaced():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(history=_said("A cream."), flags={"last_search_turn": 0})
+    pick = "My top pick is CeraVe Moisturising Cream. Two alternatives are on screen."
+
+    assert skincare.vet_reply(session, pick) == pick

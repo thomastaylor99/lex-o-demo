@@ -22,10 +22,11 @@ class Settings(BaseSettings):
     extractor_model: str = "mistral-small-latest"
     judge_model: str = "mistral-medium-latest"
     recap_model: str = "mistral-small-latest"
-    tts_model: str = "voxtral-mini-tts-2603"
+    tts_model: str = "voxtral-mini-tts-3"  # Thomas's pick by ear, 2026-10-05 (Jane Neutral)
     tts_first_chunk_timeout_s: float = 5.0  # per attempt
     tts_hedge_after_s: float = 0.9  # race a second request when the first is this slow
     tts_max_attempts: int = 3
+    tts_parallel_start: int = 2  # two requests race from the start: no slow first chunk
     session_ttl_s: int = 1800
     observer_timeout_s: float = 3.0
     catalogue_path: Path = REPO_ROOT / "backend" / "app" / "catalogue" / "data" / "products.json"

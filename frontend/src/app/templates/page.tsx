@@ -2,6 +2,16 @@ import Link from "next/link";
 
 const ROUNDS = [
   {
+    title: "Round three: where the voice lives (Frost skin)",
+    templates: [
+      { slug: "header-pill", name: "Header pill", note: "The voice joins the header as a slim pill; one top row" },
+      { slug: "breathing-island", name: "Breathing island", note: "A small white island over the conversation; it widens as the agent speaks" },
+      { slug: "voice-dock", name: "Voice dock", note: "Presence and microphone in one bar at the bottom" },
+      { slug: "inline-voice", name: "Inline voice", note: "No bar; the voice lives on the lines of the conversation" },
+      { slug: "voice-line", name: "Voice line", note: "No bar; the header's divider becomes the waveform" },
+    ],
+  },
+  {
     title: "Round two: Clinic and Studio blends",
     templates: [
       { slug: "ember", name: "Ember", note: "Dark, black and amber, calm glass panels, waveform" },

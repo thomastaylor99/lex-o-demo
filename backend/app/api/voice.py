@@ -25,16 +25,20 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 
+# The browser sends a whole reply (two or three sentences); this leaves room for a long one.
+MAX_SPEECH_CHARS = 2000
+
+
 class SpeakRequest(BaseModel):
     agent: str
     language: Language
-    text: str = Field(min_length=1, max_length=400)
+    text: str = Field(min_length=1, max_length=MAX_SPEECH_CHARS)
     session_id: str | None = None
 
 
 @router.post("/voice/speak")
 async def speak(body: SpeakRequest, request: Request) -> StreamingResponse:
-    """Stream the sentence's PCM as it arrives. Reading the first chunk here makes a stall a 504."""
+    """Stream the reply's PCM as it arrives. Reading the first chunk here makes a stall a 504."""
     agent = _agent(request, body.agent)
     services: Services = request.app.state.services
     synthesizer: Synthesizer = services.synthesizer

@@ -1,7 +1,15 @@
 """Tests for the beauty profile and merge (spec 002)."""
 
 from app.catalogue.models import Concern, SkinType, TexturePreference
-from app.profile.models import BeautyProfile, Consent, ProfileUpdate, merge
+from app.profile.models import (
+    AgeRange,
+    BeautyProfile,
+    Consent,
+    ProductFeedback,
+    ProfileUpdate,
+    Verdict,
+    merge,
+)
 
 
 def test_merge_into_empty_profile_sets_scalars():
@@ -77,3 +85,18 @@ def test_update_with_nothing_set_leaves_profile_equal():
     merged = merge(profile, ProfileUpdate())
 
     assert merged == profile
+
+
+def test_merge_keeps_each_product_feedback_once_and_updates_the_age_range():
+    heavy = ProductFeedback(brand="CeraVe", product="a cream", verdict=Verdict.DISLIKED)
+    profile = merge(
+        BeautyProfile(), ProfileUpdate(product_feedback=[heavy], age_range=AgeRange.THIRTIES)
+    )
+    light = ProductFeedback(brand="Nivea", reason="too light")
+
+    profile = merge(
+        profile, ProfileUpdate(product_feedback=[heavy, light], age_range=AgeRange.FORTIES)
+    )
+
+    assert profile.product_feedback == [heavy, light]
+    assert profile.age_range == AgeRange.FORTIES

@@ -1,7 +1,6 @@
 """Drive the live app through its routes as the browser does, and read back what it streams."""
 
 import json
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,8 +13,6 @@ from app.lang import Language
 
 PCM_FORMAT = "f32le;rate=24000;channels=1"
 PCM_BYTES_PER_S = 24_000 * 4
-SPEAK_MAX_CHARS = 400  # SpeakRequest's limit
-_SENTENCE_END = re.compile(r"(?<=[.!?…])\s+")
 
 Event = dict[str, Any]
 
@@ -36,9 +33,9 @@ class Turn:
         return [event for event in self.of("tool.started") if event["name"] == tool]
 
     def reply(self, agent: str | None = None) -> str:
-        """The agents' streamed text, or one agent's."""
-        deltas = self.of("text.delta")
-        return "".join(e["text"] for e in deltas if agent is None or e["agent"] == agent)
+        """What the agents said, or one agent: each text.done, which is what the browser speaks."""
+        done = self.of("text.done")
+        return " ".join(e["text"] for e in done if agent is None or e["agent"] == agent)
 
     @property
     def done(self) -> Event:
@@ -71,12 +68,20 @@ def take_turn(client: TestClient, session_id: str, text: str, language: Language
     return turn
 
 
-def converse(client: TestClient, lines: list[tuple[Language, str]]) -> list[Turn]:
-    """A new session, one turn per scripted line, then the session ends."""
+def converse(
+    client: TestClient, lines: list[tuple[Language, str]], typed_email: str | None = None
+) -> list[Turn]:
+    """A new session, one turn per scripted line, then the session ends. With `typed_email`, the
+    visitor types it on screen after the last line: the recap route's events come as one more
+    turn, as the browser applies them."""
     created = client.post("/sessions", json={"language": lines[0][0]})
     assert created.status_code == 200, created.text
     session_id = created.json()["session_id"]
     turns = [take_turn(client, session_id, text, language) for language, text in lines]
+    if typed_email is not None:
+        typed = client.post(f"/sessions/{session_id}/recap", json={"email": typed_email})
+        assert typed.status_code == 200, typed.text
+        turns.append(Turn(lines[-1][0], "(typed on screen)", typed.json()["events"]))
     client.delete(f"/sessions/{session_id}")
     return turns
 
@@ -88,9 +93,9 @@ def handed_over(turn: Turn) -> bool:
     return switches == [("concierge", "skincare")] and ("concierge", "handover_skincare") in lines
 
 
-def first_sentence(text: str) -> str:
-    """What the browser sends to /voice/speak first."""
-    return _SENTENCE_END.split(text.strip(), maxsplit=1)[0][:SPEAK_MAX_CHARS]
+def first_text_done(turn: Turn, agent: str) -> Event:
+    """The agent's first complete text: what the browser sends to /voice/speak, whole."""
+    return next(event for event in turn.of("text.done") if event["agent"] == agent)
 
 
 def assert_speech(response: Response, min_s: float) -> float:

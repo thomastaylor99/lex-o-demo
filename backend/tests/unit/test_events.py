@@ -17,6 +17,7 @@ from app.conversation.events import (
     ProfileUpdated,
     RecapReady,
     TextDelta,
+    TextDone,
     ToolFinished,
     ToolStarted,
     ToolTiming,
@@ -30,6 +31,7 @@ from app.conversation.events import (
 ALL_EVENTS = [
     TurnStarted(turn_id="t1", t_ms=0, agent="concierge", language="en"),
     TextDelta(turn_id="t1", t_ms=10, agent="concierge", text="Hello"),
+    TextDone(turn_id="t1", t_ms=12, agent="concierge", text="Hello"),
     ToolStarted(
         turn_id="t1", t_ms=20, call_id="c1", name="search_products", args={"query": "cream"}
     ),

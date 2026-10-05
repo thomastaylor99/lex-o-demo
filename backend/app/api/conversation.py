@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.conversation.events import AgentSwitched, TextDelta, TurnDone, to_sse
+from app.conversation.events import AgentSwitched, TextDone, TurnDone, to_sse
 from app.conversation.loop import run_turn
 from app.conversation.session import Session
 from app.lang import Language
@@ -59,8 +59,8 @@ async def _frames(services: Services, session: Session, body: TurnRequest) -> As
         )
         async with contextlib.aclosing(events):
             async for event in events:
-                if isinstance(event, TextDelta):
-                    reply.append(event.text)
+                if isinstance(event, TextDone):
+                    reply.append(event.text)  # what the browser speaks
                 elif isinstance(event, AgentSwitched):
                     agent_ids.append(event.to_agent)
                 elif isinstance(event, TurnDone):

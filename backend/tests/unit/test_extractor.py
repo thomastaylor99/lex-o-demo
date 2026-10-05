@@ -7,8 +7,21 @@ import pytest
 from app.catalogue.models import Concern, SkinType, TexturePreference
 from app.conversation.session import Session
 from app.lang import Language
-from app.profile.extractor import Parsed, ProfileExtraction, make_profile_observer, to_update
-from app.profile.models import BudgetBand, HairType, RoutineSize
+from app.profile.extractor import (
+    FeedbackExtraction,
+    Parsed,
+    ProfileExtraction,
+    make_profile_observer,
+    to_update,
+)
+from app.profile.models import (
+    AgeRange,
+    BudgetBand,
+    HairType,
+    ProductFeedback,
+    RoutineSize,
+    Verdict,
+)
 
 MODEL = "mistral-small-latest"
 
@@ -31,6 +44,8 @@ def _empty_extraction(**overrides: object) -> ProfileExtraction:
         "fragrance_free": None,
         "hair_type": None,
         "hair_concerns": [],
+        "age_years": None,
+        "product_feedback": [],
     }
     fields.update(overrides)
     return ProfileExtraction(**fields)
@@ -55,6 +70,12 @@ async def test_observer_merges_extraction_into_profile_and_emits_one_event():
         fragrance_free=True,
         hair_type=HairType.CURLY,
         hair_concerns=[Concern.FRIZZ],
+        age_years=38,
+        product_feedback=[
+            FeedbackExtraction(
+                brand="L'Oréal Paris", product="a day cream", verdict="disliked", reason="too light"
+            )
+        ],
     )
     session = _session()
     observer = make_profile_observer(_parse_returning(extraction), MODEL)
@@ -71,6 +92,15 @@ async def test_observer_merges_extraction_into_profile_and_emits_one_event():
     assert session.profile.fragrance_free is True
     assert session.profile.hair_type == HairType.CURLY
     assert session.profile.hair_concerns == [Concern.FRIZZ]
+    assert session.profile.age_range == AgeRange.THIRTIES
+    assert session.profile.product_feedback == [
+        ProductFeedback(
+            brand="L'Oréal Paris",
+            product="a day cream",
+            verdict=Verdict.DISLIKED,
+            reason="too light",
+        )
+    ]
     expected = {"profile": session.profile.model_dump(mode="json")}
     assert [(e.type, e.payload) for e in events] == [("profile.updated", expected)]
     assert events[0].latest is not None and events[0].latest() == expected
@@ -185,4 +215,25 @@ def test_profile_extraction_schema_requires_every_field():
         "fragrance_free",
         "hair_type",
         "hair_concerns",
+        "age_years",
+        "product_feedback",
     }
+    feedback = schema["$defs"]["FeedbackExtraction"]
+    assert set(feedback["required"]) == {"brand", "product", "verdict", "reason"}
+
+
+@pytest.mark.parametrize(
+    ("age_years", "expected"),
+    [
+        (None, None),
+        (0, None),
+        (24, AgeRange.UNDER_30),
+        (30, AgeRange.THIRTIES),
+        (38, AgeRange.THIRTIES),
+        (45, AgeRange.FORTIES),
+        (59, AgeRange.FIFTIES),
+        (60, AgeRange.SIXTY_PLUS),
+    ],
+)
+def test_to_update_bands_the_age_in_decades(age_years, expected):
+    assert to_update(_empty_extraction(age_years=age_years)).age_range == expected

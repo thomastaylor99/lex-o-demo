@@ -58,6 +58,16 @@ export type BudgetBand = "under_20" | "20_to_40" | "40_to_80" | "over_80";
 export type RoutineSize = "minimal" | "standard" | "full";
 export type HairType = "straight" | "wavy" | "curly" | "coily";
 export type Consent = "pending" | "given" | "declined";
+export type AgeRange = "under_30" | "30s" | "40s" | "50s" | "60_plus";
+export type Verdict = "liked" | "disliked" | "mixed";
+
+/** `backend/app/profile/models.py::ProductFeedback`: a product the visitor uses, in their words. */
+export interface ProductFeedback {
+  brand: string | null;
+  product: string | null;
+  verdict: Verdict | null;
+  reason: string | null;
+}
 
 /** `backend/app/profile/models.py::BeautyProfile`. Carried by `profile.updated`. */
 export interface BeautyProfile {
@@ -72,8 +82,10 @@ export interface BeautyProfile {
   fragrance_free: boolean | null;
   hair_type: HairType | null;
   hair_concerns: string[];
+  age_range: AgeRange | null;
+  product_feedback: ProductFeedback[];
   consent: Consent;
-  /** Masked (c***@gmail.com); set by send_recap only (spec 006). */
+  /** Masked (c***@gmail.com); set once the visitor types it on screen (spec 006). */
   email?: string | null;
 }
 
@@ -202,6 +214,13 @@ export interface RecapReady extends EventBase {
   coupon: Coupon;
 }
 
+/** The agent's text for one model call is complete: the browser speaks it in one request. */
+export interface TextDone extends EventBase {
+  type: "text.done";
+  agent: string;
+  text: string;
+}
+
 export interface ErrorEvent extends EventBase {
   type: "error";
   message: string;
@@ -211,6 +230,7 @@ export interface ErrorEvent extends EventBase {
 export type StreamEvent =
   | TurnStarted
   | TextDelta
+  | TextDone
   | ToolStarted
   | ToolFinished
   | LinePlay
@@ -231,6 +251,7 @@ export type StreamEvent =
 const EVENT_TYPES = {
   "turn.started": true,
   "text.delta": true,
+  "text.done": true,
   "tool.started": true,
   "tool.finished": true,
   "line.play": true,

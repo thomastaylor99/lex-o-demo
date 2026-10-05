@@ -21,6 +21,7 @@ AGENTS.md          this file, kept under 150 lines
 CLAUDE.md          imports this file for Claude Code
 context/           read-only inputs, indexed in context/INDEX.md
 specs/             one folder per stream: spec.md, plan.md, tasks.md
+backlog.md         fixes, cleanup and refactoring found but not scheduled
 backend/           FastAPI app, catalogue data, tests (spec 001)
 frontend/          Next.js app with its own AGENTS.md (spec 001)
 spikes/            throwaway experiments

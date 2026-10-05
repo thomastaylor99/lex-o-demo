@@ -5,10 +5,9 @@ import { labels } from "@/components/i18n";
 /** The English labels the screen shows (src/components/i18n.ts), so the tests follow the copy. */
 export const l = labels("en");
 
-/** Agent names and relay steps, as the backend's /config and the scripted conversation give them. */
+/** Agent names, as the backend's /config and the scripted conversation give them. */
 export const CONCIERGE = "Beauty concierge";
 export const SKINCARE = "Skincare expert";
-export const RELAY_STEPS = ["Welcome", "Skincare"];
 
 /** Taps Begin on the welcome screen: the one click browsers need before the mic and audio. */
 export async function begin(page: Page): Promise<void> {
@@ -26,9 +25,9 @@ export function cameraSwitch(page: Page): Locator {
 
 /**
  * Whether a person sees `text` as a whole element: outside aria-hidden, display:none,
- * visibility:hidden and opacity 0. The capsule keeps every agent's name in the page and fades the
- * inactive ones out, and Playwright counts opacity 0 as visible, so `toBeVisible` cannot tell
- * which agent is active.
+ * visibility:hidden and opacity 0. Agent labels keep their voice pill and state word in the page
+ * and fade them out once the line is no longer spoken, and Playwright counts opacity 0 as visible,
+ * so `toBeVisible` cannot tell what a person sees.
  */
 export function onScreen(page: Page, text: string): Promise<boolean> {
   return page.evaluate((wanted) => {

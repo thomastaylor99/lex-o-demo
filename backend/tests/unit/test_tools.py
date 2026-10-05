@@ -78,7 +78,7 @@ def test_product_view_follows_lang():
 # ---------------------------------------------------------------- build_tools
 
 
-def test_build_tools_returns_the_seven_tools_keyed_by_name():
+def test_build_tools_returns_the_six_tools_keyed_by_name():
     tools = build_tools(_catalogue())
 
     assert set(tools) == {
@@ -88,7 +88,6 @@ def test_build_tools_returns_the_seven_tools_keyed_by_name():
         "add_to_basket",
         "save_profile",
         "show_tutorials",
-        "send_recap",
     }
 
 
