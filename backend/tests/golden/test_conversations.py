@@ -4,8 +4,9 @@ through POST /conversation/stream on the live app, one session each, `language` 
 They assert structure (handover, tools, product ids, basket totals, reply language) and forbidden
 content (medical wording, competitors, benefits no approved claim supports, read by the claims
 judge), never exact wording. The golden path is the demo script in
-frontend/src/dev/mockVoiceAgent.ts, extended with the tutorials and the email recap of spec 006:
-the visitor types the address on screen, so it reaches POST /sessions/{id}/recap.
+frontend/src/dev/mockVoiceAgent.ts: the tutorials, the hair bridge (spec 002, Cross-sell) and the
+email recap of spec 006, where the visitor types the address on screen, so it reaches
+POST /sessions/{id}/recap.
 """
 
 import json
@@ -14,6 +15,7 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
+from app.agents.hair import asks_about_hair
 from app.agents.skincare import _first_named
 from app.catalogue.store import Catalogue
 from app.lang import Language
@@ -31,8 +33,12 @@ GOLDEN_PATH_EN = [
     "I'm in my thirties, and I'd like to stay around twenty five euros.",
     "The first one sounds perfect, I'll take it.",
     "Yes please, add the cleanser.",
+    "It's wavy, and quite dry at the ends.",
+    "Yes, add the oil please.",
     "Yes, please save it. My name is Camille.",
 ]
+OIL, SHAMPOO = "lop-elseve-extraordinary-oil", "lop-elseve-extraordinary-oil-shampoo"
+SAVE = re.compile(r"\bsav(?:e|ing)\b", re.IGNORECASE)
 TYPED_EMAIL = "camille.martin@example.com"
 # The address said aloud, the way Thomas's live run cut it in two (2026-10-05).
 SAID_EMAIL = "Yes, my email is thomas dot taylor at mistral dot ai."
@@ -77,6 +83,18 @@ ASKS = [
     re.compile(r"rich|light|texture", re.IGNORECASE),
     re.compile(r"age|old|decade|year", re.IGNORECASE),
 ]
+# Thomas, 2026-10-06: an opening that names no product gets the product question first.
+VAGUE_OPENINGS: list[tuple[Language, str]] = [
+    ("en", "I'd like some help with my skincare routine."),
+    ("fr", "J'aimerais un peu d'aide pour ma routine de soin."),
+]
+ASKS_PRODUCT = re.compile(
+    r"product|moisturi|cleanser|serum|sunscreen|produit|crème|nettoyant|sérum|solaire",
+    re.IGNORECASE,
+)
+ASKS_SKIN_TYPE = re.compile(
+    r"\b(dry|oily|combination|skin type|sèche|grasse|mixte|type de peau)\b", re.IGNORECASE
+)
 RETINOL = [
     "Hi, I'd like a moisturiser for the first signs of ageing.",
     "Normal skin, not sensitive, and I like light textures. Around forty euros.",
@@ -120,6 +138,24 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     assert journey <= called, called
     saves = [event["args"] for turn in turns for event in turn.calls("save_profile")]
     assert any(args.get("consent") is True for args in saves), saves
+
+    # The hair bridge: the turn the tutorials show ends on a question about hair, the answer
+    # brings both haircare products with the oil first, and the oil goes in the basket in the
+    # turn that asks to save the profile.
+    tutorials, answered, accepted = turns[5], turns[6], turns[7]
+    assert tutorials.calls("show_tutorials"), [event["type"] for event in tutorials.events]
+    assert asks_about_hair(tutorials.reply()), tutorials.reply()
+    hair = [
+        event
+        for event in answered.of("products.shown")
+        if {product["category"] for product in event["products"]} == {"haircare"}
+    ]
+    assert hair, answered.of("products.shown")
+    assert hair[0]["best_match_id"] == OIL, hair[0]
+    assert {product["id"] for product in hair[0]["products"]} == {OIL, SHAMPOO}, hair[0]
+    added = [event["args"].get("product_ids", []) for event in accepted.calls("add_to_basket")]
+    assert any(OIL in ids for ids in added), added
+    assert SAVE.search(accepted.reply()), accepted.reply()
     later = [turn.reply() for turn in turns[1:]]
     assert not [reply for reply in later if AI_DISCLAIMER.search(reply)], later
 
@@ -145,7 +181,8 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
         for item in basket["items"]:
             assert item["price_eur"] == float(catalogue.get(item["product_id"]).price_eur), item
     final = {item["product_id"] for item in baskets[-1]["items"]}
-    assert {catalogue.get(i).category for i in final} >= {"moisturiser", "cleanser"}, final
+    categories = {catalogue.get(i).category for i in final}
+    assert categories >= {"moisturiser", "cleanser", "haircare"}, final
     assert final & {event["best_match_id"] for event in shown}, "the top pick is not in the basket"
 
     profile = turns[-1].of("profile.updated")[-1]["profile"]  # what the screen shows at the end
@@ -153,6 +190,7 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     assert (profile["skin_type"], profile["sensitive"]) == ("dry", True), profile
     assert (profile["texture_preference"], profile["budget_band"]) == ("rich", "20_to_40"), profile
     assert profile["age_range"] == "30s", profile
+    assert (profile["hair_type"], profile["hair_concerns"]) == ("wavy", ["dry_hair"]), profile
     assert any("oréal" in (item["brand"] or "").lower() for item in profile["product_feedback"])
     assert profile["email"] == recap["email_masked"], profile
     assert_top_pick_said(turns)
@@ -186,6 +224,20 @@ def test_the_diagnosis_comes_before_any_product(live: TestClient, catalogue: Cat
     assert searches, [event["type"] for event in answered.events]
     assert_top_pick_said(turns)
     assert searches[0]["args"].get("texture_preference") == "light", searches[0]["args"]
+
+
+@pytest.mark.parametrize(("language", "opening"), VAGUE_OPENINGS)
+def test_a_vague_opening_asks_which_product_first(
+    live: TestClient, language: Language, opening: str
+):
+    (turn,) = converse(live, [(language, opening)])
+
+    assert handed_over(turn), [event["type"] for event in turn.events]
+    reply = turn.reply("skincare")
+    assert "?" in reply and ASKS_PRODUCT.search(reply), reply
+    assert not ASKS_SKIN_TYPE.search(reply), reply
+    assert detect(reply, default="en" if language == "fr" else "fr") == language, reply
+    assert not turn.calls("search_products") and not turn.of("products.shown"), turn.events
 
 
 def test_switch_en_fr(live: TestClient, catalogue: Catalogue, judge: Judge):

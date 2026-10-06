@@ -1,6 +1,6 @@
 # 002 Discovery
 
-> Status: approved 2026-10-04. Owner: Thomas. Last updated: 2026-10-05.
+> Status: approved 2026-10-04. Owner: Thomas. Last updated: 2026-10-06.
 
 ## Goal
 
@@ -27,7 +27,7 @@ Out of scope: the haircare expert and any third specialist (V1, same mechanism);
 4. Recommendation: one best match and up to two alternatives; one spoken reason tied to the visitor's words and one approved claim. Prices and details stay on screen. The product the expert presents first is always the one the screen marks "Top pick": the search result names it `top_pick`, and a reply in the search's turn that presents another product first, or none by name, gives way to the top pick's fixed presentation (its full name, its fit line, an approved claim word for word) (Thomas, 2026-10-06).
 5. Choice: the chosen products go into the basket.
 6. Routine: the expert completes the routine around the cream with catalogue pairings (cleanser, serum, sunscreen).
-7. Cross-sell: one question about hair, one haircare suggestion.
+7. Cross-sell: once the routine is in the basket and its tutorials are on screen (spec 006), one question about hair, then one haircare suggestion, added if the visitor agrees; two turns at most. See Cross-sell below.
 8. Close: the expert asks to save the profile and routine. Yes keeps them for the session; no discards the profile. A two-sentence recap ends the conversation.
 
 At any turn the visitor may switch language: the reply follows, with the claims of that language.
@@ -48,7 +48,7 @@ At any turn the visitor may switch language: the reply follows, with the claims 
 | `add_to_basket` | skincare | `product_ids` | basket items and total; emits `basket.updated` |
 | `save_profile` | skincare | `consent`, `first_name` (optional) | profile kept or discarded, and a summary; emits `profile.updated` |
 
-Ranking is plain code: points for skin type, each matching concern, texture and fragrance-free; products unsuitable for sensitive skin are dropped when `sensitive` is true; products above `max_price_eur` are dropped; ties go to the price closest to the budget. Results only include products that have claims in the session language. Tool results never carry internal scores.
+Ranking is plain code: points for skin type, each matching concern, texture and fragrance-free; products unsuitable for sensitive skin are dropped when `sensitive` is true; products above `max_price_eur` are dropped; ties go to the price closest to the budget. A haircare search ignores the skin criteria (skin type, sensitivity, texture, SPF, age range), so a sensitive skin carried over from the skin search cannot empty it: neither hair product's page mentions sensitive skin. Results only include products that have claims in the session language. Tool results never carry internal scores.
 
 ## Catalogue schema
 
@@ -88,13 +88,24 @@ Thomas, 2026-10-05: the expert asks the same questions, in the same order, every
 - The turn the diagnosis completes, `search_products` is forced and the context says so; the expert presents the top pick in that same turn. When the first sentence answers all five topics, that is the handover turn. The search takes the age range: from 30 it adds a point, half a named concern's weight, to products for the first signs of ageing (30s) or for firmness and wrinkles (40 and over).
 - The word lists leave out ambiguous words ("one sec", "brilliant", "tight budget"): a missed word costs one redundant question, a wrong match skips one.
 
+## Cross-sell
+
+Thomas, 2026-10-06: after the cleanser, show that the expert also cross-sells into hair. One short bridge in the expert's own voice, with no new agent, so no handover pause. `backend/app/agents/hair.py` picks the step from what the tools recorded (the turn the tutorials first showed, the turn haircare was first searched); `backend/app/agents/skincare.py` puts that step's note in the context, as it does for the diagnosis and the tutorials.
+
+1. Ask, the turn the tutorials first show: after its sentence about the tutorials, the expert asks one question about the visitor's hair (how it feels, or its type), with no tools. A reply that asks something else that turn (saving the profile) keeps its statements and ends on the fixed hair question instead: "And your hair: how does it usually feel, dry, frizzy, or fine as it is?" The extractor fills the record's hair row from the answer.
+2. Search, the next turn, only if the expert's last reply asked about hair: an answer that describes the hair (dry, frizzy, wavy, curly, secs, frisottis and so on) forces `search_products` with category `haircare`; an answer that wants nothing ("no thanks, it's fine") leaves the choice to the model, which moves on to saving the profile. The catalogue's two haircare products come back, the Elvive Extraordinary Oil first (ranked by concern, then the budget), and show as a product group with their one-line reason ("For dry hair: within your budget.").
+3. Present, the same turn: the note names the first result and quotes its first approved claim, which the expert voices word for word, saying the shampoo beside it goes with it and asking whether they would like it. Asked only for "one approved claim", it voiced "nourish dry ends and add shine" in the first golden run.
+4. Decide, the turn after: `add_to_basket` if the visitor agrees, nothing if they decline; either way the expert then asks to save the profile, and the journey carries on (save, typed email, recap).
+
+If the expert never asks about hair, or the visitor answers with a question, the bridge closes and the journey carries on.
+
 ## Golden conversations
 
 `backend/tests/golden/`, scripted visitor lines replayed as text through the loop, with `language` set as STT would. The scripts live in `plan.md`.
 
 | Test | Asserts |
 |---|---|
-| `golden_path_en` | handover on turn 1; the first products on turn 4, after the redness, current product and age questions; the profile holds the age range and the product feedback; `search_products`, `add_to_basket`, `get_routine` and `save_profile(consent=true)` called; recommended products come from tool results; basket and profile meet the success criteria |
+| `golden_path_en` | handover on turn 1; the first products on turn 4, after the redness, current product and age questions; the profile holds the age range and the product feedback; `search_products`, `add_to_basket`, `get_routine` and `save_profile(consent=true)` called; the turn the tutorials show asks about hair, the answer ("wavy, and quite dry at the ends") brings both haircare products with the oil first, and the oil goes in the basket in the turn that asks to save the profile; recommended products come from tool results; basket (moisturiser, cleanser, haircare) and profile (hair type and concern) meet the success criteria |
 | `switch_en_fr` | replies follow the visitor into French and back; French replies use French claims |
 | `the_diagnosis_comes_before_any_product` | Thomas's sentence with no skin detail: skin type, redness, current product, texture and age asked in that order, no product named or shown before, the search on the sixth turn with the texture given |
 | `eczema` | no medical claim; the reply says it cannot confirm and points to a pharmacist or dermatologist |

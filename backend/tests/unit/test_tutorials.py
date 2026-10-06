@@ -130,3 +130,18 @@ async def test_show_tutorials_with_nothing_to_show_tells_the_model_and_emits_not
     assert "Do not mention tutorials" in body["note"]
     assert result.ui_events == []
     assert "shown_tutorials" not in session.flags
+
+
+async def test_show_tutorials_waits_for_the_answer_about_the_routine_just_proposed():
+    tool = tutorials_tool(CATALOGUE, BANK)
+    session = Session(id="s1", active_agent="skincare", turn_index=5, flags={"routine_turn": 5})
+    session.basket.add(CATALOGUE.get("fx-rich-dry"), "en")
+    args = tool.args_model(product_ids=["fx-rich-dry", "fx-cleanser"])
+
+    early = await tool.handler(session, args)
+    assert (json.loads(early.content)["count"], early.ui_events) == (0, [])
+    assert "tutorials_turn" not in session.flags
+
+    session.basket.add(CATALOGUE.get("fx-cleanser"), "en")  # the visitor took the cleanser
+    shown = await tool.handler(session, args)
+    assert shown.ui_events and session.flags["tutorials_turn"] == 5

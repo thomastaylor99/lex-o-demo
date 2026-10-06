@@ -11,7 +11,7 @@ Make the discovery feel personal and show L'Oréal leadership what the conversat
 | Topic | Choice |
 |---|---|
 | Why it suits you | One sentence per product card, built in code from catalogue facts that match the profile (skin type, sensitivity, texture, fragrance-free, SPF, budget), English and French. The brand's approved claim stays on the card as the benefit |
-| Tutorials | A bank of real TikTok and YouTube videos (Instagram when found), from the official brand accounts and from creators, a few per product, each link checked; Thomas approves the list (`tutorials.md`). Offered once the routine is complete; cards show platform, creator, title and a QR code |
+| Tutorials | A bank of real TikTok and YouTube videos (Instagram when found), from the official brand accounts and from creators, a few per product, each link checked; Thomas approves the list (`tutorials.md`). Offered once the routine is complete, just before the hair bridge (spec 002, Cross-sell); cards show platform, creator, title and a QR code |
 | Customer record | Adds the email only. After consent, the visitor types it in a field on screen; the expert never asks for it aloud (revised after the live run: a dictated address came in two pieces, and the expert refused it) |
 | Recap | A model writes a short recap of the discovery from session facts and approved claims only, with an example in-store coupon (code and QR). Shown on screen as an email preview; nothing is sent |
 | Privacy | The email is masked on screen and in events (c***@gmail.com) and redacted from logs. Nothing is stored after the session |
@@ -29,13 +29,13 @@ Make the discovery feel personal and show L'Oréal leadership what the conversat
 - The field closes with "No thanks" or Escape. The browser neither stores nor suggests what was typed (`autocomplete="off"`, a plain text input), so the next visitor never sees the address. Spaces are dropped as they are typed, and Space keeps driving hold-to-talk while the field has the focus (`data-voice-keys` on the input, read by the talk bar).
 - Data: `backend/app/catalogue/data/tutorials.json`, `{"tutorials": [{id, product_ids, brand, platform, creator, creator_kind, title, url, language, verified_on}]}`.
 - Screen state: `tutorialGroups`, `recap`, and transcript entries of kind `tutorials` and `recap` (`frontend/src/lib/voice-agent.ts`).
-- Journey steps 6 to 8 in the expert's prompt (`backend/app/agents/prompts.py`).
+- Journey steps 5, 7 and 8 in the expert's prompt (`backend/app/agents/prompts.py`): tutorials, saving the profile, the typed email. Step 6, between them, is the hair bridge (spec 002, Cross-sell, 2026-10-06).
 
 ## Verification
 
 - Unit tests: fit sentences in both languages, the tutorials tool, email normalising and masking, the coupon, log redaction, the recap service with a fake writer, the recap route, the expert's email and recap notes, the typed-address check.
 - Golden path extended: `show_tutorials` called, the expert points at the email field after consent, the typed address brings `recap.ready`, every recap sentence is checked by the claims judge, and "I'm an AI" appears only in the introduction. A second golden conversation says the address aloud: the expert asks to type it, without repeating it.
-- Browser test of the scripted conversation: the "For you" line, the tutorial cards, the email field (a typo caught, then the address), the recap and its coupon.
+- Browser test of the scripted conversation: the "For you" line, the tutorial cards, the hair moment (the record's hair row, the two Elvive products, the oil in the basket), the email field (a typo caught, then the address), the recap and its coupon.
 - Thomas runs the journey live and approves the tutorial list.
 
 ## As built (2026-10-05)
@@ -46,4 +46,5 @@ Make the discovery feel personal and show L'Oréal leadership what the conversat
 - **Email:** typed on screen (revised after Thomas's live run on 2026-10-05, where speech to text cut the dictated address at a pause and the expert answered "I'm an AI, so I can't process email addresses"). After consent the expert says in one sentence that the visitor can type their email in the field on the screen; it never asks for an address aloud, repeats or spells one. When the visitor starts saying one anyway, a context note asks the expert to point at the field. The address is masked in the profile, in events and in logs, written or spoken.
 - **Recap:** written by the model with structured output, then checked: quotations must be exact approved claims, fit sentences unchanged, the body ends with the code and stays under 140 words. Otherwise, or after 6 s, a template writes it. The browser says "One moment, I'm preparing your recap." when writing takes more than 0.8 s, then "Thank you. Your recap and your in-store offer are on screen." Once it is on screen, a context note keeps the expert from offering it again.
 - **Coupon:** "LEX-" and four characters derived from the session id, an example 10% in-store offer valid 30 days.
+- **Hair bridge (2026-10-06):** the turn the tutorials show now ends on one question about the visitor's hair instead of the save-profile question; the answer brings the two Elvive products, and the oil joins the basket before the save (spec 002, Cross-sell). In the scripted demo (`/?mock=1`) the visitor answers "It's wavy, and quite dry at the ends." and "Yes, add the oil please."; the basket ends at three products (€34.02), the record at 12 of 12, and the field for the address appears 81 seconds after Begin.
 - **Tests:** 298 backend unit tests, 23 frontend unit tests, the browser test of the scripted journey (61 seconds, then the typed address), and 8 golden conversations against the live models (the main one covers tutorials, the typed address and the recap, with the claims judge on the recap).

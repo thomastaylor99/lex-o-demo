@@ -129,6 +129,44 @@ const ANTHELIOS = product({
   fit: "For dry, sensitive skin: SPF 50 for daytime, within your budget.",
 });
 
+/** The hair bridge after the tutorials (spec 002, Cross-sell): the oil first, its shampoo beside it. */
+const ELVIVE_OIL = product({
+  id: "lop-elseve-extraordinary-oil",
+  brand: "L'Oréal Paris",
+  division: "consumer_products",
+  name: "Elvive Extraordinary Oil",
+  category: "haircare",
+  routine_step: "hair",
+  texture: "oil",
+  spf: null,
+  fragrance_free: false,
+  size_ml: 100,
+  price_eur: 12.4,
+  url: "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/extraordinary-oil",
+  claim:
+    "Enriched with a precious blend of 6 flower extracts the non-greasy feel formula leaves hair looking soft, shiny and weightless.",
+  note: "Use before shampooing for nourishment.",
+  fit: "For dry hair: within your budget.",
+});
+
+const ELVIVE_SHAMPOO = product({
+  id: "lop-elseve-extraordinary-oil-shampoo",
+  brand: "L'Oréal Paris",
+  division: "consumer_products",
+  name: "Elvive Extraordinary Oil Nourishing Shampoo",
+  category: "haircare",
+  routine_step: "hair",
+  texture: "shampoo",
+  spf: null,
+  fragrance_free: false,
+  size_ml: 250,
+  price_eur: 6.6,
+  url: "https://www.loreal-paris.co.uk/elvive/extraordinary-oil/oil-shampoo-dry-hair",
+  claim: "Hair feels softer and looks healthier",
+  note: "Apply on wet hair, massage your scalp and rinse.",
+  fit: "For dry hair: within your budget.",
+});
+
 /** Tutorials for the routine. The brands' official accounts stand in until Thomas approves the video list. */
 const tutorial = (t: Omit<TutorialView, "creator_kind" | "language">): TutorialView => ({ ...t, creator_kind: "brand", language: "en" });
 
@@ -178,7 +216,8 @@ const RECAP: Recap = {
   body: [
     "Hi Camille, thank you for your visit today. You told us your skin feels dry and tight, reddens easily, and that you love rich creams.",
     "Your routine: cleanse with the CeraVe Hydrating Cleanser, then apply La Roche-Posay Toleriane Sensitive Rich Moisturiser morning and evening. It repairs and protects skin's barrier while reducing signs of discomfort.",
-    "Find more from both brands on TikTok and YouTube, and show the code below in store for your offer.",
+    "For your wavy, dry hair, L'Oréal Paris Elvive Extraordinary Oil leaves hair looking soft, shiny and weightless.",
+    "Find more from CeraVe and La Roche-Posay on TikTok and YouTube, and show the code below in store for your offer.",
   ].join("\n\n"),
   coupon: { code: "LEX-7Q2M", label: "Example offer: 10% off this routine in store", valid_until: "2026-11-04" },
 };
@@ -229,10 +268,10 @@ const INITIAL: State = {
 };
 
 /** Reply times (ms) and running conversation cost (EUR) after each turn of the script. */
-const REPLY_MS = [450, 600, 560, 520, 640, 580, 610];
-const COST_EUR = [0.004, 0.009, 0.013, 0.018, 0.024, 0.029, 0.034];
+const REPLY_MS = [450, 600, 560, 520, 640, 580, 620, 540, 610];
+const COST_EUR = [0.004, 0.009, 0.013, 0.018, 0.024, 0.029, 0.034, 0.038, 0.043];
 /** The cost once the recap is written: the writer's model call, after the address is typed. */
-const RECAP_COST_EUR = 0.037;
+const RECAP_COST_EUR = 0.046;
 
 // ------------------------------------------------------------------ script builders
 
@@ -408,18 +447,35 @@ function script(): Step[] {
     ...say(
       54300,
       "skincare",
-      "Done, your routine is complete. Tutorials from CeraVe and La Roche-Posay are on screen, with a code to scan to watch them on your phone. Would you like me to save your skin profile and routine for next time?",
+      "Done, your routine is complete. Tutorials from CeraVe and La Roche-Posay are on screen, with a code to scan to watch them on your phone. And your hair, how does it usually feel?",
     ),
-    ...hear(61800, "Yes, please save it. My name is Camille."),
-    { at: 64000, apply: set({ activity: "thinking" }) },
-    { at: 64400, apply: updateProfile({ first_name: "Camille", routine_size: "minimal", consent: "given" }) },
-    { at: 64500, apply: reply(6) },
+    // The hair bridge (spec 002, Cross-sell): one question, the two Elvive products, then the save.
+    ...hear(60600, "It's wavy, and quite dry at the ends."),
+    { at: 62900, apply: set({ activity: "thinking" }) },
+    { at: 63000, apply: updateProfile({ hair_type: "wavy", hair_concerns: ["dry_hair"] }) },
+    line(63400, "skincare", "Let me look through our range for you."),
+    { at: 63400, apply: reply(6) },
+    { at: 64200, apply: show("recommendation", [ELVIVE_OIL, ELVIVE_SHAMPOO], ELVIVE_OIL.id) },
     ...say(
-      64500,
+      64900,
+      "skincare",
+      "For your dry ends, L'Oréal Paris Elvive Extraordinary Oil leaves hair looking soft, shiny and weightless. The shampoo beside it goes with it. Would you like the oil in your selection?",
+    ),
+    ...hear(71000, "Yes, add the oil please."),
+    { at: 72700, apply: set({ activity: "thinking" }) },
+    { at: 73100, apply: addToBasket(ELVIVE_OIL) },
+    { at: 73200, apply: reply(7) },
+    ...say(73200, "skincare", "Lovely, it's in your selection. Would you like me to save your skin profile and routine for next time?"),
+    ...hear(77800, "Yes, please save it. My name is Camille."),
+    { at: 80000, apply: set({ activity: "thinking" }) },
+    { at: 80400, apply: updateProfile({ first_name: "Camille", routine_size: "minimal", consent: "given" }) },
+    { at: 80500, apply: reply(8) },
+    ...say(
+      80500,
       "skincare",
       "Thank you, Camille, your profile and routine are saved. To receive a recap with an in-store offer, type your email in the field on the screen.",
     ),
-    { at: 70400, apply: set({ activity: "listening" }) },
+    { at: 86400, apply: set({ activity: "listening" }) },
   ];
 }
 

@@ -1,4 +1,4 @@
-"""Tests for the skincare diagnosis: three topics, in order, skipping what is known (spec 002)."""
+"""Tests for the skincare diagnosis: its topics, in order, skipping what is known (spec 002)."""
 
 import pytest
 
@@ -17,21 +17,28 @@ EMPTY = BeautyProfile()
             "It's dry, mostly on my cheeks, and it gets red quite easily.",
             {Topic.SKIN_TYPE, Topic.REDNESS},
         ),
-        ("I love rich creams, around twenty five euros.", {Topic.TEXTURE}),
+        ("I love rich creams, around twenty five euros.", {Topic.TEXTURE, Topic.PRODUCT}),
         ("Normal to dry, and not sensitive at all.", {Topic.SKIN_TYPE, Topic.REDNESS}),
         ("Something lightweight please.", {Topic.TEXTURE}),
-        ("It stings a bit when I put cream on.", {Topic.REDNESS}),
+        ("It stings a bit when I put cream on.", {Topic.REDNESS, Topic.PRODUCT}),
         ("J'ai la peau sèche et elle tiraille.", {Topic.SKIN_TYPE}),
         ("Elle est réactive, avec des rougeurs.", {Topic.REDNESS}),
         ("Je préfère les textures légères.", {Topic.TEXTURE}),
         ("Peau mixte, un peu brillante.", {Topic.SKIN_TYPE}),
-        ("I'm looking for a new skincare routine, especially a new moisturizer.", set()),
+        ("I'm looking for a new skincare routine, especially a new moisturizer.", {Topic.PRODUCT}),
+        ("I'd like some help with my skincare routine.", set()),
+        ("J'aimerais un peu d'aide pour ma routine de soin.", set()),
+        ("I need a sunscreen for the summer.", {Topic.PRODUCT}),
+        ("Je cherche un sérum.", {Topic.PRODUCT}),
         ("I'm on a tight budget.", set()),
         ("Brilliant, give me a sec.", set()),
         ("I'd like to reduce the first lines.", set()),
-        ("I use a L'Oréal cream, but it's too heavy.", {Topic.CURRENT_PRODUCT, Topic.TEXTURE}),
+        (
+            "I use a L'Oréal cream, but it's too heavy.",
+            {Topic.CURRENT_PRODUCT, Topic.TEXTURE, Topic.PRODUCT},
+        ),
         ("I've been using Nivea for years.", {Topic.CURRENT_PRODUCT}),
-        ("J'utilise une crème CeraVe.", {Topic.CURRENT_PRODUCT}),
+        ("J'utilise une crème CeraVe.", {Topic.CURRENT_PRODUCT, Topic.PRODUCT}),
         ("How do I use it?", set()),
         ("I'm 38.", {Topic.AGE}),
         ("I'm in my forties.", {Topic.AGE}),
@@ -77,6 +84,20 @@ def test_five_questions_in_order_when_the_visitor_volunteers_nothing() -> None:
         Topic.AGE,
         None,
     ]
+
+
+def test_a_vague_opening_asks_which_product_first() -> None:
+    asked = run("I'd like some help with my skincare routine.", "A moisturiser, please.")
+
+    assert asked == [Topic.PRODUCT, Topic.SKIN_TYPE]
+
+
+def test_the_concierge_summary_names_the_product_and_nothing_else() -> None:
+    diagnosis = Diagnosis()
+    summary = "Looking for a moisturiser; skin has felt tight lately."
+    diagnosis.advance(0, ["Something for my skin, please."], EMPTY, summary)
+
+    assert diagnosis.asking == Topic.SKIN_TYPE
 
 
 def test_a_topic_the_visitor_already_mentioned_is_skipped() -> None:
