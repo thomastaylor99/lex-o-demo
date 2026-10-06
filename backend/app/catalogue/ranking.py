@@ -30,6 +30,13 @@ AGE_CONCERNS: dict[AgeRange, Concern] = {
 }
 
 
+# The visitor's skin says nothing about their hair: a haircare search drops these, so a sensitive
+# skin carried over from the skin search does not empty it (spec 002, Cross-sell).
+SKIN_CRITERIA: dict[str, None] = dict.fromkeys(
+    ("skin_type", "sensitive", "texture_preference", "spf_needed", "age_range")
+)
+
+
 class SearchQuery(BaseModel):
     category: Category
     skin_type: SkinType | None = None
@@ -50,6 +57,8 @@ class SearchOutcome(BaseModel):
 def search(
     products: Iterable[Product], query: SearchQuery, lang: Language, limit: int = 3
 ) -> SearchOutcome:
+    if query.category == Category.HAIRCARE:
+        query = query.model_copy(update=SKIN_CRITERIA)
     pool = [p for p in products if p.category == query.category and p.has_language(lang)]
     hits = [p for p in pool if _passes(p, query, use_price=True)]
     relaxed: list[str] = []

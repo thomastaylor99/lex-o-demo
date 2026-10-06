@@ -2,6 +2,8 @@
 
 Thomas, 2026-10-05: skin type, redness, the product they use now (feedback for the brands'
 marketing teams), texture, then age range (optional), skipping what the visitor already said.
+Thomas, 2026-10-06: first, which product they are looking for, when neither their words nor the
+concierge's summary named one.
 The code picks each turn's topic and holds the search until the diagnosis is complete; the
 model only words the question. A topic is answered once the visitor's words mention it, once the
 profile holds it, or once the expert asked about it and the visitor replied with anything but a
@@ -17,6 +19,7 @@ from app.profile.models import BeautyProfile
 
 
 class Topic(StrEnum):
+    PRODUCT = "product"
     SKIN_TYPE = "skin_type"
     REDNESS = "redness"
     CURRENT_PRODUCT = "current_product"
@@ -25,10 +28,19 @@ class Topic(StrEnum):
 
 
 # The current product comes before texture: "it was too heavy" answers both.
-ORDER = (Topic.SKIN_TYPE, Topic.REDNESS, Topic.CURRENT_PRODUCT, Topic.TEXTURE, Topic.AGE)
+ORDER = (
+    Topic.PRODUCT,
+    Topic.SKIN_TYPE,
+    Topic.REDNESS,
+    Topic.CURRENT_PRODUCT,
+    Topic.TEXTURE,
+    Topic.AGE,
+)
 
 # What the expert asks about, as the context section names it.
 QUESTIONS: dict[Topic, str] = {
+    Topic.PRODUCT: "which product they are looking for: a moisturiser, a cleanser, a serum or a "
+    "sunscreen",
     Topic.SKIN_TYPE: "how their skin usually feels: dry, oily, combination or normal",
     Topic.REDNESS: "whether their skin reddens, stings or reacts when they apply a cream",
     Topic.CURRENT_PRODUCT: "which moisturiser they use at the moment and how they find it",
@@ -40,6 +52,14 @@ QUESTIONS: dict[Topic, str] = {
 # costs one redundant question; a word wrongly matched skips one, so ambiguous words stay out
 # ("sec" as in "one sec", "brilliant", "tight budget").
 MENTIONS: dict[Topic, re.Pattern[str]] = {
+    # A type of product. "Skincare", "routine" and "products" name none.
+    Topic.PRODUCT: re.compile(
+        r"\b(moisturi[sz]\w*|creams?|serums?|cleans\w*|face ?wash|sunscreens?|sun ?creams?|spf|"
+        r"sun protection|toners?|lotions?|shampoos?|conditioners?|hair ?(?:care|oils?|masks?)|"
+        r"crèmes?|hydratante?s?|sérums?|nettoyants?|démaquillants?|écrans?|solaires?|"
+        r"shampo{1,2}ings?|huiles?|masques?)\b",
+        re.IGNORECASE,
+    ),
     Topic.SKIN_TYPE: re.compile(
         r"\b(dry|drier|oily|greasy|combination|combo|normal|tight(?:ness)?(?!\s+budget)|shiny|"
         r"flaky|dehydrated|sèches?|grasses?|gras|mixte|normale|tiraill\w*|brill(?:e|ance|ante?s?)|"
@@ -77,6 +97,11 @@ MENTIONS: dict[Topic, re.Pattern[str]] = {
 # Words a question about each topic uses, in English and French: a reply without them asks
 # about something else.
 ASKS: dict[Topic, re.Pattern[str]] = {
+    Topic.PRODUCT: re.compile(
+        r"product|looking for|moisturi|cleanser|serum|sunscreen|cream|produit|recherch|cherch|"
+        r"crème|hydratant|nettoyant|sérum|solaire",
+        re.IGNORECASE,
+    ),
     Topic.SKIN_TYPE: re.compile(
         r"dry|oily|combination|normal|skin type|sèche|grasse|mixte|normale|type de peau",
         re.IGNORECASE,
@@ -124,8 +149,11 @@ class Diagnosis:
     turn: int = -1  # the turn `asking` belongs to
     heard: int = 0  # visitor lines already read
 
-    def advance(self, turn: int, lines: list[str], profile: BeautyProfile) -> None:
-        """Read the visitor's new lines and pick this turn's topic; a no-op within a turn."""
+    def advance(
+        self, turn: int, lines: list[str], profile: BeautyProfile, summary: str = ""
+    ) -> None:
+        """Read the visitor's new lines and pick this turn's topic; a no-op within a turn. The
+        concierge's summary can name the product, in the visitor's terms, and nothing else."""
         if turn == self.turn:
             return
         self.turn = turn
@@ -133,7 +161,7 @@ class Diagnosis:
         self.heard = len(lines)
         for line in new:
             self.answered |= mentioned(line)
-        self.answered |= known(profile)
+        self.answered |= known(profile) | (mentioned(summary) & {Topic.PRODUCT})
         latest = new[-1] if new else ""
         if self.asking is not None and self.asking not in self.answered:
             if "?" not in latest or self.asks.get(self.asking, 0) >= 2:
@@ -159,5 +187,6 @@ def diagnosis_for(session: Session) -> Diagnosis:
     """The session's diagnosis, brought up to date with the current turn."""
     diagnosis: Diagnosis = session.flags.setdefault(FLAG, Diagnosis())
     lines = [message["content"] for message in session.history if message["role"] == "user"]
-    diagnosis.advance(session.turn_index, lines, session.profile)
+    summary = session.flags.get("handover_summary") or ""
+    diagnosis.advance(session.turn_index, lines, session.profile, summary)
     return diagnosis

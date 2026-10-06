@@ -57,6 +57,7 @@ Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/s
 - 2026-10-05: When speech to text closes a sentence while the visitor is still talking, the engine keeps listening on a new socket and answers after the visitor's own silence, so nobody is cut off mid-sentence (Thomas; `frontend/src/lib/voice-engine.ts`).
 
 - 2026-10-05: The medical note also forbids saying what a product does in that reply: in a golden run the expert referred to a pharmacist, then offered "products that soothe redness", a benefit without an approved claim. Three runs out of three passed after (`backend/app/agents/skincare.py`, `MEDICAL_NOTE`).
+- 2026-10-06: Once the skin routine is in the basket and its tutorials are on screen, the skincare expert, in the same voice, asks one question about the visitor's hair, then suggests the Elvive Extraordinary Oil with an approved claim, its shampoo beside it on screen, and adds it only if the visitor agrees; two turns at most, then the save-profile question. Thomas wanted the demo to show cross-selling beyond the skin routine, and one bridge in the expert's voice costs no handover pause (spec 002, Journey step 7 and Cross-sell).
 
 ## Profile
 

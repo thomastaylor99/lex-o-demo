@@ -16,6 +16,11 @@ from app.lang import Language
 from app.profile.models import AgeRange, BeautyProfile
 from app.tools.views import product_view
 
+LAST_SEARCH_TURN = "last_search_turn"
+SEARCH_TURNS = "search_turns"  # the first turn each category was searched
+ROUTINE_TURN = "routine_turn"  # the last turn get_routine ran
+FIRST_SHOWN = "first_shown"  # product id: the turn it first showed, which add_to_basket reads
+
 
 class SearchArgs(BaseModel):
     """Mirrors `SearchQuery`, with the budget expressed as a plain float for the model."""
@@ -73,11 +78,9 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
         outcome = search(catalogue.all(), query, session.language)
         views = _views(outcome.products, search_profile(session.profile, query), session.language)
 
-        session.flags["last_search_turn"] = session.turn_index
-        shown_ids = session.flags.setdefault("shown_ids", [])
-        for product in outcome.products:
-            if product.id not in shown_ids:
-                shown_ids.append(product.id)
+        session.flags[LAST_SEARCH_TURN] = session.turn_index
+        session.flags.setdefault(SEARCH_TURNS, {}).setdefault(args.category, session.turn_index)
+        _record_shown(session, outcome.products)
 
         best_match_id = outcome.products[0].id if outcome.products else None
         content = json.dumps({"results": views, "relaxed": outcome.relaxed}, ensure_ascii=False)
@@ -96,6 +99,7 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
         if product is None:
             return ToolResult(content=json.dumps({"error": "unknown product"}, ensure_ascii=False))
 
+        session.flags[ROUTINE_TURN] = session.turn_index
         paired = [
             partner
             for partner_id in product.pairs_with
@@ -104,10 +108,7 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
         ]
         views = _views(paired, session.profile, session.language)
 
-        shown_ids = session.flags.setdefault("shown_ids", [])
-        for partner in paired:
-            if partner.id not in shown_ids:
-                shown_ids.append(partner.id)
+        _record_shown(session, paired)
 
         content = json.dumps(
             {
@@ -146,6 +147,16 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
         handler=handle_get_routine,
     )
     return search_tool, routine_tool
+
+
+def _record_shown(session: Session, products: list[Product]) -> None:
+    """The products now on screen, in order, and the turn each first showed."""
+    shown_ids = session.flags.setdefault("shown_ids", [])
+    first_shown = session.flags.setdefault(FIRST_SHOWN, {})
+    for product in products:
+        if product.id not in shown_ids:
+            shown_ids.append(product.id)
+        first_shown.setdefault(product.id, session.turn_index)
 
 
 def _views(products: list[Product], profile: BeautyProfile, lang: Language) -> list[dict[str, Any]]:

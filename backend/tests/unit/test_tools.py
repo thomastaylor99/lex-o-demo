@@ -287,6 +287,23 @@ async def test_add_to_basket_unknown_id_alone_breaks_nothing():
     assert body["basket"]["items"] == []
 
 
+async def test_a_product_goes_in_the_basket_from_the_turn_after_it_first_showed():
+    tools = build_tools(_catalogue())
+    session = _session(turn_index=5)
+    await tools["get_routine"].handler(
+        session, tools["get_routine"].args_model(product_id="fx-rich-dry")
+    )
+    args = tools["add_to_basket"].args_model(product_ids=["fx-cleanser"])
+
+    early = json.loads((await tools["add_to_basket"].handler(session, args)).content)
+    assert (early["added"], early["not_yet"]) == ([], ["fx-cleanser"])
+    assert session.basket.items == []
+
+    session.turn_index = 6  # the visitor said yes
+    later = json.loads((await tools["add_to_basket"].handler(session, args)).content)
+    assert (later["added"], "not_yet" in later) == (["fx-cleanser"], False)
+
+
 # ----------------------------------------------------------------- save_profile
 
 

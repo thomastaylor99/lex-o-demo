@@ -2,7 +2,8 @@
 
 The diagnosis comes first, the same way every time (`app/agents/diagnosis.py`): while a topic is
 open the expert has no tools and the context names the topic to ask about; once it is complete,
-the search is forced in that same turn.
+the search is forced in that same turn. Once the routine's tutorials are on screen, the hair
+bridge (`app/agents/hair.py`) names each of its steps in the context the same way.
 """
 
 import json
@@ -12,6 +13,7 @@ from collections.abc import Mapping
 import structlog
 
 from app.agents.diagnosis import ASKS, QUESTIONS, Topic, diagnosis_for
+from app.agents.hair import HairStep, hair_pick, hair_search_due, hair_step, with_hair_question
 from app.agents.prompts import LINES, SKINCARE_INSTRUCTIONS
 from app.agents.voices import SKINCARE_VOICES
 from app.conversation.agent import AgentConfig, Tool, force
@@ -24,9 +26,9 @@ from app.recap.service import RECAP_FLAG
 
 logger = structlog.get_logger()
 
-# Expert turns (since the handoff) without a search before the loop forces one: the five
+# Expert turns (since the handoff) without a search before the loop forces one: the six
 # diagnosis questions and one asked again.
-TURNS_BEFORE_FORCED_SEARCH = 6
+TURNS_BEFORE_FORCED_SEARCH = 7
 SEARCHED = "last_search_turn"  # set by search_products
 
 # A named skin condition or a request for a cure, in English or French (claims policy).
@@ -37,7 +39,9 @@ MEDICAL = re.compile(
 )
 TUTORIALS_NOTE = (
     "The routine is in the basket and no tutorials are on screen yet: call show_tutorials now "
-    "with the ids of the products in the basket, and mention the tutorials in one sentence."
+    "with the ids of the products in the basket, then say in one sentence that tutorials from "
+    "the brands and from creators are on screen, with a code to scan to watch them on their "
+    "phone, and ask one short question about the visitor's hair."
 )
 # A reply that announces a search or an action ("let me find", "one moment") instead of taking it.
 PROMISE = re.compile(
@@ -87,6 +91,12 @@ INTRO: dict[Language, str] = {
     "fr": "Je suis l'experte soin de L'Oréal, une intelligence artificielle. ",
 }
 FIXED_QUESTIONS: dict[Topic, dict[Language, str]] = {
+    Topic.PRODUCT: {
+        "en": "Which product are you looking for today: a moisturiser, a cleanser, a serum or a "
+        "sunscreen?",
+        "fr": "Quel produit recherchez-vous aujourd'hui : une crème hydratante, un nettoyant, un "
+        "sérum ou une protection solaire ?",
+    },
     Topic.SKIN_TYPE: {
         "en": "How does your skin usually feel by the end of the day: dry, oily, combination or "
         "normal?",
@@ -116,10 +126,47 @@ DIAGNOSED_NOTE = (
     "Diagnosis complete: call search_products now with what the visitor told you, then present "
     "the top pick."
 )
+# The hair bridge, one note per step: a question, a search, a suggestion, then the answer.
+HAIR_NOTES: dict[HairStep, str] = {
+    HairStep.ASK: (
+        "The skin routine is complete and its tutorials are on screen. After your sentence about "
+        "the tutorials, ask one short question about the visitor's hair: how it feels, or its "
+        "type. Name no hair product yet, and do not ask about saving the profile yet."
+    ),
+    HairStep.SEARCH: (
+        "The visitor answered your question about their hair. If they describe it, call "
+        'search_products now with category "haircare" and their hair concerns (dry_hair, frizz '
+        "or damaged_hair). If they want nothing for their hair, do not search: ask whether they "
+        "would like you to save their skin profile and routine."
+    ),
+    HairStep.PRESENT: (
+        "The haircare results are on screen. Suggest the first one with one approved claim, word "
+        "for word, say in a few words that the product beside it goes with it, and ask whether "
+        "they would like it in their selection. Nothing else."
+    ),
+    HairStep.DECIDE: (
+        "The hair suggestion is on screen. If the visitor accepts it, call add_to_basket with the "
+        "product they chose, unless it is in the basket already, and say in a few words that it is "
+        "in their selection; if they decline, do not insist. Then ask whether they would like you "
+        "to save their skin profile and routine."
+    ),
+}
+# The suggestion quotes its claim from the search result: asked for "one approved claim", the
+# model voiced the oil as "nourishes dry ends and adds shine" (golden run, 2026-10-06).
+HAIR_PICK_NOTE = (
+    "The haircare results are on screen. Name {name}, then say what it does in the words of its "
+    'approved claim, the whole claim or the part that says what it does, word for word: "{claim}" '
+    "Then say in a few words that the product beside it goes with it, and ask whether they would "
+    "like it in their selection. Nothing else."
+)
 
 
 def _tool_choice(session: Session) -> ToolChoice:
     if SEARCHED in session.flags:
+        if hair_step(session) is HairStep.ASK:
+            return "none"  # the bridge opens with a question, never with a product
+        if hair_search_due(session, _latest_visitor_text(session)):
+            return force("search_products")
         return "auto"
     if _search_due(session):
         return force("search_products")
@@ -127,14 +174,16 @@ def _tool_choice(session: Session) -> ToolChoice:
 
 
 def _search_due(session: Session) -> bool:
-    """The diagnosis is complete, or six expert turns passed without a search."""
+    """The diagnosis is complete, or seven expert turns passed without a search."""
     expert_turns = session.turn_index - session.active_since_turn
     return expert_turns >= TURNS_BEFORE_FORCED_SEARCH or diagnosis_for(session).complete
 
 
 def _vet_reply(session: Session, text: str) -> str:
     """During the diagnosis, a reply that is not one short clean question on its topic becomes the
-    topic's fixed question."""
+    topic's fixed question. The turn the hair bridge opens, the reply ends on the hair question."""
+    if hair_step(session) is HairStep.ASK:
+        return with_hair_question(session, text)
     if SEARCHED in session.flags or _search_due(session):
         return text
     topic = diagnosis_for(session).asking
@@ -176,11 +225,23 @@ def _context_block(session: Session) -> str:
             f"Products already shown: {', '.join(shown_ids) or 'none'}",
             *_diagnosis_notes(session),
             *([TUTORIALS_NOTE] if _tutorials_due(session) else []),
+            *_hair_notes(session),
             *([MEDICAL_NOTE] if MEDICAL.search(_latest_visitor_text(session)) else []),
             *([EMAIL_NOTE] if _email_said(session) else []),
             *([RECAP_NOTE] if session.flags.get(RECAP_FLAG) else []),
         ]
     )
+
+
+def _hair_notes(session: Session) -> list[str]:
+    """This turn's step of the hair bridge, if it is open."""
+    step = hair_step(session)
+    if step is None:
+        return []
+    pick = hair_pick(session) if step is HairStep.PRESENT else None
+    if pick is not None:
+        return [HAIR_PICK_NOTE.format(name=pick[0], claim=pick[1])]
+    return [HAIR_NOTES[step]]
 
 
 def _tutorials_due(session: Session) -> bool:

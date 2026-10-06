@@ -261,14 +261,14 @@ def test_skincare_context_drops_the_diagnosis_once_a_search_ran():
     assert skincare.tool_choice(session) == "auto"
 
 
-def test_skincare_policy_forces_search_at_six_expert_turns_without_a_search_yet():
+def test_skincare_policy_forces_search_at_seven_expert_turns_without_a_search_yet():
     skincare = build_skincare(MODEL, _tools())
-    session = _session(active_since_turn=0, turn_index=6)
+    session = _session(active_since_turn=0, turn_index=7)
 
     assert skincare.tool_choice(session) == force("search_products")
 
 
-def test_skincare_policy_keeps_forcing_search_past_six_turns_until_one_runs():
+def test_skincare_policy_keeps_forcing_search_past_seven_turns_until_one_runs():
     skincare = build_skincare(MODEL, _tools())
     session = _session(active_since_turn=2, turn_index=9)
 
@@ -453,7 +453,9 @@ def test_the_handover_turn_keeps_the_introduction_and_the_language():
 
 def test_a_clean_diagnosis_question_on_its_topic_is_kept():
     skincare = build_skincare(MODEL, _tools())
-    session = _session(active_since_turn=1, turn_index=2, history=_said("Hi.", "Quite dry."))
+    session = _session(
+        active_since_turn=1, turn_index=2, history=_said("A moisturiser.", "Quite dry.")
+    )
     question = "Thanks. Does your skin ever turn red when you apply a cream?"
 
     assert skincare.vet_reply(session, question) == question
@@ -461,7 +463,9 @@ def test_a_clean_diagnosis_question_on_its_topic_is_kept():
 
 def test_a_question_on_another_topic_becomes_the_topic_question():
     skincare = build_skincare(MODEL, _tools())
-    session = _session(active_since_turn=1, turn_index=2, history=_said("Hi.", "Quite dry."))
+    session = _session(
+        active_since_turn=1, turn_index=2, history=_said("A moisturiser.", "Quite dry.")
+    )
 
     said = skincare.vet_reply(session, "Does your skin feel tight after your current cream?")
 
@@ -474,3 +478,32 @@ def test_replies_after_the_search_are_never_replaced():
     pick = "My top pick is CeraVe Moisturising Cream. Two alternatives are on screen."
 
     assert skincare.vet_reply(session, pick) == pick
+
+
+def test_a_vague_opening_gets_the_product_question_before_any_skin_question():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(
+        active_since_turn=1,
+        turn_index=1,
+        history=_said("I'd like some help with my skincare routine."),
+        flags={"handover_summary": "Wants help with their skincare routine."},
+    )
+
+    assert "which product they are looking for" in skincare.context_block(session)
+    assert skincare.tool_choice(session) == "none"
+    assert skincare.vet_reply(session, "How does your skin usually feel?") == (
+        "I'm L'Oréal's AI skincare expert. Which product are you looking for today: a "
+        "moisturiser, a cleanser, a serum or a sunscreen?"
+    )
+
+
+def test_a_product_named_in_the_concierge_summary_skips_the_product_question():
+    skincare = build_skincare(MODEL, _tools())
+    session = _session(
+        active_since_turn=1,
+        turn_index=1,
+        history=_said("Something for my skin, please."),
+        flags={"handover_summary": "Looking for a moisturiser."},
+    )
+
+    assert "how their skin usually feels" in skincare.context_block(session)

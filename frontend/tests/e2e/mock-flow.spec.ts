@@ -6,12 +6,13 @@ import { begin, cameraSwitch, CONCIERGE, expectOnScreen, l, onScreen, SKINCARE }
 
 /*
  * The scripted conversation (src/dev/mockVoiceAgent.ts), no backend needed. It starts 0.6 s after
- * Begin and waits, about 61 s later, for the visitor to type their address; the times below are
- * seconds after Begin.
+ * Begin and waits, about 87 s after Begin, for the visitor to type their address; the times below
+ * are seconds after Begin.
  */
 const TOLERIANE = "Toleriane Sensitive Rich Moisturiser";
-/** Toleriane (14.17) and the Hydrating Cleanser (7.45). */
-const TOTAL = formatPrice(21.62, "en");
+const OIL = "Elvive Extraordinary Oil";
+/** Toleriane (14.17), the Hydrating Cleanser (7.45) and the Extraordinary Oil (12.40). */
+const TOTAL = formatPrice(34.02, "en");
 /** The visitor's address as the screen shows it: masked, in the record and on the recap. */
 const EMAIL = "c***@example.com";
 
@@ -33,19 +34,17 @@ test.describe("scripted conversation (/?mock=1)", () => {
     await expectOnScreen(page, `${SKINCARE} ${l.joined}`, 5_000);
     await expectOnScreen(page, l.activity.speaking, 5_000);
 
-    // 25.3 s: three recommendations with Toleriane as the top pick, each saying why it suits her;
-    // 36.0 s: the rest of the routine
+    // 35.3 s: three recommendations with Toleriane as the top pick, each saying why it suits her;
+    // 46.0 s: the rest of the routine
     await expect(page.getByText(l.selectedForYou, { exact: true })).toBeVisible({ timeout: 40_000 });
     await expect(page.getByText(TOLERIANE, { exact: true }).first()).toBeVisible();
     await expect(page.getByText(l.topPick, { exact: true })).toBeVisible();
     await expect(page.getByText(l.forYou, { exact: true }).first()).toBeVisible();
     await expect(page.getByText(l.completeRoutine, { exact: true })).toBeVisible({ timeout: 30_000 });
 
-    // 44.4 s: two products in the basket; 44.7 s: four tutorials from the brands' own accounts, each with a code to scan
+    // 54.4 s: two products in the basket; 54.7 s: four tutorials from the brands' own accounts, each with a code to scan
     await expect(page.getByText(l.yourSelection, { exact: true })).toBeVisible();
-    await expect(page.getByText(TOTAL, { exact: true })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(l.total, { exact: true })).toBeVisible();
-    await expect(page.getByText(l.tutorialsTitle, { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(l.tutorialsTitle, { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(l.official, { exact: true })).toHaveCount(4);
     await expect(page.getByText(l.scanToWatch, { exact: true })).toHaveCount(4);
     // On a computer, each card opens its video in a new tab and the conversation keeps running.
@@ -56,12 +55,19 @@ test.describe("scripted conversation (/?mock=1)", () => {
       await expect(link).toHaveAttribute("href", /^https:\/\//);
     }
 
-    // 55.0 s: the customer record has the visitor's name and consent
+    // 63.6 s: her answer fills the record's hair row; 64.8 s: the two Elvive products, the oil as
+    // the top pick; 73.7 s: the oil joins the basket, three products
+    await expect(page.getByText(OIL, { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Wavy hair, Dry hair", { exact: true })).toBeVisible();
+    await expect(page.getByText(TOTAL, { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(l.total, { exact: true })).toBeVisible();
+
+    // 81.0 s: the customer record has the visitor's name and consent
     await expect(page.getByText(l.customerRecord, { exact: true })).toBeVisible();
     await expect(page.getByText("Camille", { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(l.savedWithConsent, { exact: true })).toBeVisible();
 
-    // 55.1 s: the email field takes the focus; a typo is caught on screen, then the typed address
+    // 81.1 s: the email field takes the focus; a typo is caught on screen, then the typed address
     // fills the record's tenth field and brings the recap with its example offer, and the field goes
     const email = page.getByRole("textbox", { name: l.emailLabel });
     await expect(email).toBeFocused({ timeout: 10_000 });
@@ -80,13 +86,13 @@ test.describe("scripted conversation (/?mock=1)", () => {
     await expect(page.getByText(l.exampleOffer, { exact: true })).toBeVisible();
     await expect(page.getByText("LEX-7Q2M", { exact: true })).toBeVisible();
     await expect(page.getByText(EMAIL, { exact: true })).toHaveCount(2);
-    await expect(page.getByText(`11 ${l.of} 12`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`12 ${l.of} 12`, { exact: true })).toBeVisible();
 
     // right quarter: the duration, reply times, and the running cost once the recap is written
     await expect(page.getByText(l.duration, { exact: true })).toBeVisible();
     await expect(page.getByText(l.avgReply, { exact: true })).toBeVisible();
     await expect(page.getByText(l.p90, { exact: true })).toBeVisible();
-    await expect(page.getByText(formatCost(0.037, "en"), { exact: true })).toBeVisible();
+    await expect(page.getByText(formatCost(0.046, "en"), { exact: true })).toBeVisible();
 
     // Restart shows the welcome screen again, and Begin starts a clean conversation
     await page.getByRole("button", { name: l.restart }).click();
