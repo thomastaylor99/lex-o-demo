@@ -481,8 +481,12 @@ function recapSteps(email: string): Step[] {
     { at: 900, apply: updateProfile({ email: emailMasked }) },
     { at: 900, apply: showRecap({ ...RECAP, emailMasked }) },
     { at: 900, apply: set({ costEur: RECAP_COST_EUR }) },
-    line(1000, "skincare", "Thank you. Your recap and your in-store offer are on screen."),
-    { at: 4200, apply: set({ activity: "listening" }) },
+    line(
+      1000,
+      "skincare",
+      "Thank you. Your recap and your in-store offer are on screen. If you have questions about any of our products, don't hesitate to ask our other specialists, and do come and try them in store.",
+    ),
+    { at: 9500, apply: set({ activity: "listening" }) },
   ];
 }
 

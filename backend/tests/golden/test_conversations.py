@@ -284,6 +284,20 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     assert not breaches, "\n".join(breaches)
 
 
+def test_a_no_to_saving_ends_on_the_closing_line(live: TestClient):
+    """Thomas, 2026-10-06: the last sentence invites the visitor to ask the other specialists and
+    to try the products in store, whether they save their profile or not."""
+    turns = converse(live, english([*GOLDEN_PATH_EN[:-1], "No thanks, I'd rather not."]))
+
+    declined = turns[-1]
+    saves = [event["args"] for event in declined.calls("save_profile")]
+    assert saves and saves[-1].get("consent") is False, saves
+    plays = declined.of("line.play")
+    assert [(e["agent"], e["line"]) for e in plays][-1:] == [("skincare", "closing")], plays
+    after = declined.events[declined.events.index(plays[-1]) :]
+    assert not [event for event in after if event["type"] == "text.done"], after
+
+
 def test_an_address_said_aloud_is_typed_on_screen(live: TestClient):
     """The visitor says the address after consent: the expert asks them to type it, without
     repeating it, refusing as an AI or showing a recap the visitor never typed."""

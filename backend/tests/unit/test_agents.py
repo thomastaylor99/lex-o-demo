@@ -7,6 +7,7 @@ import pytest
 
 from app.agents import FIRST_AGENT, build_agents
 from app.agents.concierge import build_concierge
+from app.agents.prompts import CLOSING
 from app.agents.skincare import build_skincare
 from app.catalogue.store import Catalogue
 from app.conversation.agent import AgentConfig, force
@@ -169,7 +170,22 @@ def test_skincare_has_exactly_its_fixed_lines():
     """The browser plays the two recap lines around POST /sessions/{id}/recap."""
     skincare = build_skincare(MODEL, _tools())
 
-    assert set(skincare.lines) == {"filler_search", "filler_recap", "recap_ready", "recap_failed"}
+    assert set(skincare.lines) == {
+        "filler_search",
+        "filler_recap",
+        "recap_ready",
+        "recap_failed",
+        "closing",
+    }
+
+
+@pytest.mark.parametrize("line", ["recap_ready", "closing"])
+def test_the_conversation_ends_on_the_invitation_to_the_specialists_and_the_store(line: str):
+    """Thomas, 2026-10-06: the last sentence, saved profile or not."""
+    skincare = build_skincare(MODEL, _tools())
+
+    for language in LANGUAGES:
+        assert skincare.lines[line][language].endswith(CLOSING[language])
 
 
 def test_skincare_says_it_is_an_ai_and_names_the_groupe_only_when_it_applies():

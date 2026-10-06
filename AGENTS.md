@@ -4,7 +4,7 @@ Voice product-discovery app shown live at the L'Oréal Learning Expedition on 20
 
 What matters on the day, in order: it works every time, it answers fast (voice latency is the blocker L'Oréal named for Beauty Genius), and every claim it speaks traces back to the catalogue.
 
-Owner: Thomas Taylor. Status: v2, demo-ready, on `main` at `0888b10` (2026-10-06). A new session starts with `context/handover.md`: the state, what changed since V1, the risks and how to carry on. Run commands are in `README.md`.
+Owner: Thomas Taylor. Status: v2, demo-ready, tagged `v2` on `main` (2026-10-06). A new session starts with `context/handover.md`: the state, what changed since V1, the risks and how to carry on. Run commands are in `README.md`.
 
 ## Read first
 

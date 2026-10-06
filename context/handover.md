@@ -6,9 +6,10 @@ Read this first in a new session, then `AGENTS.md` for the rules and `specs/v2/a
 
 ## Where things stand
 
-- `main` is at `0888b10` ("v2: demo-ready voice concierge, open fixes listed in backlog.md"), pushed to Thomas's private GitHub repo `lex-o-demo` on 2026-10-06. `integrate/v1-2` points to the same commit.
+- The official v2 is the tag `v2` on `main`, pushed by Thomas to his private GitHub repo `lex-o-demo` on 2026-10-06. It starts from `0888b10` ("v2: demo-ready voice concierge, open fixes listed in backlog.md", pushed that morning; `integrate/v1-2` still points to it) and adds the work of the same day listed below.
 - Every check passed on that commit: quick checks, the production build, the four browser tests (scripted conversation, camera switch, product sheet, real audio through a fake microphone), and the golden conversations, 7 of 7 in three runs in a row.
-- Since then, on 2026-10-06: `main` at `2b3c7eb` merged the top-pick fix, the hesitation fix (`fix/speech-buffer`), Stop (`feat/stop-button`) and the hair bridge with the product question (`feat/hair-cross-sell`). Branch `feat/journey-routine` adds the routine in code (one cleanser right after the cream, the tutorials for both, then hair) and a fuller record (concern question, texture from the current cream, budget and routine size from the basket); see `context/decisions.md`, 2026-10-06.
+- Then `4432038`: the routine in code and the fuller record, on top of `2b3c7eb`; then `feat/closing-line`: both endings close on the same invitation to ask the other specialists and to try the products in store. The tag `v2` sits on this last commit.
+- Earlier on 2026-10-06: `main` at `2b3c7eb` merged the top-pick fix, the hesitation fix (`fix/speech-buffer`), Stop (`feat/stop-button`) and the hair bridge with the product question (`feat/hair-cross-sell`). Branch `feat/journey-routine` adds the routine in code (one cleanser right after the cream, the tutorials for both, then hair) and a fuller record (concern question, texture from the current cream, budget and routine size from the basket); see `context/decisions.md`, 2026-10-06.
 - Dry run: 2026-10-06 at 15:30. Event: Wednesday 2026-10-07, 11:00 to 13:00, Mistral office, room 2.11, a 20-minute hands-on slot (`context/brief.md`).
 - Version names: "v2" is this demo-ready commit. `specs/README.md` once used V2 for the camera; the camera (spec 004) is still unbuilt, apart from its slot behind `?camera=1`.
 
@@ -18,7 +19,7 @@ Read this first in a new session, then `AGENTS.md` for the rules and `specs/v2/a
 |---|---|---|
 | V0 | `9565a90` | The skincare journey by voice in the terminal (`backend/scripts/talk.py`), specs 000 to 003, the first UI templates |
 | V1 | `6ea0df3`, `7ada306`, `50b09fe` | The designed screen (Frost skin) on the live engine, the cost meter, unit, browser and golden tests; pushed as `50b09fe` |
-| v2 | `0888b10` | Everything in the next section |
+| v2 | tag `v2` | Everything in the next section (`0888b10`), and the work of 2026-10-06 listed under Where things stand |
 
 ## What changed from V1 to v2
 
@@ -65,7 +66,7 @@ Sample from the live server on 2026-10-05: "I'm looking for a new skincare routi
 - Claims on presentation turns: twice on 2026-10-05 (before the last fixes) the expert added an effect no approved claim holds ("reduces wrinkles"); none in 21 conversations since. If it recurs, apply the diagnosis reply check to presentation turns (`backlog.md`, Claims risk to watch).
 - Hands-free in a busy room: the noise threshold and the resume of a paused line were tested with clean recorded audio only. The fallback is hold to talk (button or space bar).
 - Sessions expire after 30 idle minutes, and every turn then fails silently (`backlog.md`, fix 1): press Restart before each visitor and after a long pause.
-- At startup the backend log should read `lines_warmed lines=14 of=14`; a line that failed to warm plays as nothing (fix 11).
+- At startup the backend log should read `lines_warmed lines=16 of=16`; a line that failed to warm plays as nothing (fix 11), so restart the backend when it reads less (on 2026-10-06 one line failed while golden tests ran alongside).
 - The speech service is slow now and then: when both racing requests stall, a reply starts 1.3 to 2.2 s late.
 - Parallel sessions: other agents worked in worktrees and also wrote into the main folder, and v2 picked up their header and product-sheet work untested until after the commit. Before any commit, build and run the browser tests on what is actually in the folder.
 
@@ -92,7 +93,7 @@ Sample from the live server on 2026-10-05: "I'm looking for a new skincare routi
 
 ## Repository state
 
-- Branches: `main` and `integrate/v1-2` at `0888b10`. Older branches with worktrees under `.claude/worktrees/` (ignored by git): `feat/header-stats` (`header-advisor`), `feat/product-carousel`, `inline-voice`, `fix/recap-email`, `worktree-voice-bar`, and a detached `preview`.
+- Branches: `main`, tagged `v2`; `integrate/v1-2` at `0888b10`; `fix/speech-buffer`, `feat/stop-button`, `feat/hair-cross-sell`, `feat/journey-routine` and `feat/closing-line`, all merged into `main`. Older branches with worktrees under `.claude/worktrees/` (ignored by git): `feat/header-stats` (`header-advisor`), `feat/product-carousel`, `inline-voice`, `fix/recap-email`, `worktree-voice-bar`, and a detached `preview`.
 - Every worktree is behind v2. The only change they hold that v2 lacks is the black Restart pill in `header-advisor` (v2 has a white one); the rest is older copies of files v2 already has. They can go after the event, Thomas's call (`git worktree remove`).
 
 ## Where to read what

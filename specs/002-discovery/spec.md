@@ -28,7 +28,7 @@ Out of scope: the haircare expert and any third specialist (V1, same mechanism);
 5. Choice: the chosen products go into the basket.
 6. Routine: in the same turn, the expert suggests the one product that completes the routine (for a cream, the cleanser that suits the visitor's skin), with its approved claim; the next turn adds it if the visitor agrees, then the tutorials for the routine show. The same steps every time; see Routine below.
 7. Cross-sell: once the routine is in the basket and its tutorials are on screen (spec 006), one question about hair, then one haircare suggestion, added if the visitor agrees; two turns at most. See Cross-sell below.
-8. Close: the expert asks to save the profile and routine. Yes keeps them for the session; no discards the profile. A two-sentence recap ends the conversation.
+8. Close: the expert asks to save the profile and routine. Yes keeps them for the session, and the address typed on screen brings the recap (spec 006); no discards the profile, and `save_profile` plays the fixed `closing` line and ends the turn. Either way the last sentence is the same invitation (Thomas, 2026-10-06): "If you have questions about any of our products, don't hesitate to ask our other specialists, and do come and try them in store."
 
 At any turn the visitor may switch language: the reply follows, with the claims of that language.
 

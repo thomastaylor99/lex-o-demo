@@ -1,6 +1,6 @@
 # Architecture v2
 
-> Status: as built at commit `0888b10` on `main`, 2026-10-06, the demo-ready version. Owner: Thomas. The reasons behind each choice are in `specs/000-architecture/spec.md` and `context/decisions.md`; what changed since V1, the risks and the state of the repo are in `context/handover.md`. V1 as built: `git show 50b09fe:specs/v1/architecture.md`.
+> Status: as built at commit `0888b10` on `main`, 2026-10-06, the demo-ready version, with the routine in code, the fuller record and the closing invitation added the same day; the tag `v2` holds them and the rest of that day's work (`context/handover.md`). Owner: Thomas. The reasons behind each choice are in `specs/000-architecture/spec.md` and `context/decisions.md`; what changed since V1, the risks and the state of the repo are in `context/handover.md`. V1 as built: `git show 50b09fe:specs/v1/architecture.md`.
 
 ## What v2 is
 
@@ -310,7 +310,7 @@ The Stop hook runs the quick checks after every agent turn that changed files. T
 ## Running it
 
 From the repo root, per the README:
-- Backend: `cd backend && uv run uvicorn app.main:app --port 8000`. Startup synthesises the 14 fixed lines; the log line `lines_warmed lines=14 of=14` means all are cached.
+- Backend: `cd backend && uv run uvicorn app.main:app --port 8000`. Startup synthesises the 16 fixed lines; the log line `lines_warmed lines=16 of=16` means all are cached.
 - Frontend: `cd frontend && npm run build && npx next start -p 3100`. Restart `next start` after every build, `scripts/verify` included: a running server keeps serving the old build and breaks.
 - Live: http://localhost:3100/ (headphones, or hold to talk). Scripted: http://localhost:3100/?mock=1.
 - Terminal only: `cd backend && uv run python scripts/talk.py --mode ptt`.

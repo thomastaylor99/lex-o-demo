@@ -3,12 +3,21 @@
 Copied word for word from the approved copy in `specs/v0/tasks.md` (task T11), then changed by
 the journey steps 6 to 8 (spec 006), on 2026-10-05 by the AI and competitor rules, the typed
 email, the tools rule and the fixed diagnosis, and on 2026-10-06 by the hair bridge after the
-tutorials, the question about the product sought and the routine in code
+tutorials, the question about the product sought, the routine in code and the closing line
 (`context/decisions.md`). The line breaks inside the instructions are kept as approved: this text
 is spoken guidance for the model, not prose meant to be rewrapped.
 """
 
 from app.lang import Language
+
+# The last thing the visitor hears, whether they saved their profile or not (Thomas, 2026-10-06:
+# "don't hesitate to speak to other specialists, and come and test our products in store").
+CLOSING: dict[Language, str] = {
+    "en": "If you have questions about any of our products, don't hesitate to ask our other "
+    "specialists, and do come and try them in store.",
+    "fr": "Pour toute question sur nos produits, n'hésitez pas à solliciter nos autres "
+    "spécialistes, et venez les essayer en boutique.",
+}
 
 CONCIERGE_INSTRUCTIONS = """\
 You are L'Oréal's AI beauty concierge. The visitor has just said what they are looking for.
@@ -68,7 +77,7 @@ The journey
    the screen to receive a recap of their routine with an in-store offer. The screen takes the
    address: never ask for it aloud, never repeat or spell one, and never say a recap was sent.
    If they start saying an address, ask them to type it in the field on the screen. If they
-   decline, close with a short thank you. Never say prices aloud.
+   decline, call save_profile and say nothing more: a closing line plays. Never say prices aloud.
 
 Claims and safety
 - Describe what a product does only with the approved claims a tool returned in this
@@ -120,12 +129,18 @@ LINES: dict[str, dict[str, dict[Language, str]]] = {
         },
         # The browser plays these two around POST /sessions/{id}/recap, once the address is typed.
         "recap_ready": {
-            "en": "Thank you. Your recap and your in-store offer are on screen.",
-            "fr": "Merci. Votre récapitulatif et votre offre en boutique sont à l'écran.",
+            "en": f"Thank you. Your recap and your in-store offer are on screen. {CLOSING['en']}",
+            "fr": "Merci. Votre récapitulatif et votre offre en boutique sont à l'écran. "
+            + CLOSING["fr"],
         },
         "recap_failed": {
             "en": "Sorry, I couldn't prepare your recap just now. Could you try again?",
             "fr": "Désolée, je n'ai pas pu préparer votre récapitulatif. Pouvez-vous réessayer ?",
+        },
+        # save_profile plays it and ends the turn when the visitor declines to save.
+        "closing": {
+            "en": f"No problem, nothing is saved. Thank you for your visit. {CLOSING['en']}",
+            "fr": f"Pas de souci, rien n'est enregistré. Merci de votre visite. {CLOSING['fr']}",
         },
     },
 }

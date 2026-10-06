@@ -1,4 +1,8 @@
-"""Save or discard the visitor's beauty profile, with consent (spec 002)."""
+"""Save or discard the visitor's beauty profile, with consent (spec 002).
+
+A visitor who declines hears the agent's fixed closing line, and the turn ends there: the same
+last sentence as after the recap, with no model call (Thomas, 2026-10-06).
+"""
 
 import json
 
@@ -40,6 +44,8 @@ async def _handle_save_profile(session: Session, args: SaveProfileArgs) -> ToolR
     return ToolResult(
         content=content,
         ui_events=[UiEvent(type="profile.updated", payload={"profile": profile_view})],
+        line=None if args.consent else "closing",
+        end_turn=not args.consent,
     )
 
 

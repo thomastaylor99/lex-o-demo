@@ -350,6 +350,7 @@ async def test_save_profile_consent_given_sets_consent_and_first_name():
     assert body["basket_total_eur"] == pytest.approx(float(session.basket.total_eur))
     assert session.profile.consent == Consent.GIVEN
     assert session.profile.first_name == "Alex"
+    assert (result.line, result.end_turn) == (None, False)  # the expert points at the email field
 
     assert len(result.ui_events) == 1
     event = result.ui_events[0]
@@ -372,3 +373,4 @@ async def test_save_profile_refusal_wipes_skin_type_and_declines_consent():
     assert body["profile"]["language"] == "en"
     assert session.profile.skin_type is None
     assert session.profile.consent == Consent.DECLINED
+    assert (result.line, result.end_turn) == ("closing", True)  # the closing ends the turn

@@ -27,7 +27,7 @@ From `000-architecture`: 001 voice core, 002 discovery, 003 journey and UI, 004 
 |---|---|---|---|
 | V0 | The skincare journey by voice, end to end, in the terminal (`backend/scripts/talk.py`) | 001, 002 | done 2026-10-04 |
 | V1 | The designed screen in the browser on the live engine | 003 | done 2026-10-05 (`7ada306`, pushed as `50b09fe`) |
-| v2 | The demo-ready conversation: whole-reply voice, the diagnosis in code with product feedback and age range, the journey of spec 006, Eclipse welcome, inline voice, product sheet (`0888b10`; `specs/v2/architecture.md`) | 001, 002, 003, 006 | done 2026-10-06 |
+| v2 | The demo-ready conversation: whole-reply voice, the diagnosis in code with product feedback and age range, the journey of spec 006, Eclipse welcome, inline voice, product sheet; then the routine in code, the fuller record and the closing invitation (tag `v2`; `specs/v2/architecture.md`) | 001, 002, 003, 006 | done 2026-10-06 |
 | Later | The haircare expert, presenter controls, the camera behind a switch | 002 extended, 005, 004 | after the event |
 
 2026-10-06 is kept for adjustments and the 15:30 dry run.
