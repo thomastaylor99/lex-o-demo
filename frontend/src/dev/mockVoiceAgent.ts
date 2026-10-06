@@ -15,6 +15,7 @@ import type { Basket, BeautyProfile, ProductFeedback, ProductView, TutorialView 
 import {
   EMPTY_REPLY_STATS,
   replyStats,
+  settled,
   type AgentIdentity,
   type EmailResult,
   type ProductGroup,
@@ -23,7 +24,7 @@ import {
   type VoiceAgent,
 } from "@/lib/voice-agent";
 
-type State = Omit<VoiceAgent, "setMode" | "start" | "end" | "pttDown" | "pttUp" | "submitEmail">;
+type State = Omit<VoiceAgent, "setMode" | "start" | "stop" | "end" | "pttDown" | "pttUp" | "submitEmail">;
 type Step = { at: number; apply: (s: State) => State };
 
 const AGENTS: AgentIdentity[] = [
@@ -456,6 +457,12 @@ export function useMockVoiceAgent(): VoiceAgent {
     }
   }, []);
 
+  // Stop: the script and the recap stop where they are, and the screen keeps what they showed.
+  const stop = useCallback(async () => {
+    clear();
+    setState((s) => (s.status === "live" ? { ...s, status: "ended", activity: "idle", transcript: settled(s.transcript) } : s));
+  }, []);
+
   const end = useCallback(async () => {
     clear();
     setState(INITIAL);
@@ -473,5 +480,5 @@ export function useMockVoiceAgent(): VoiceAgent {
     return { ok: true };
   }, []);
 
-  return { ...state, start, end, setMode, pttDown, pttUp, submitEmail };
+  return { ...state, start, stop, end, setMode, pttDown, pttUp, submitEmail };
 }

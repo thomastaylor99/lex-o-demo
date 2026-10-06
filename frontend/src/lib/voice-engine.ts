@@ -29,13 +29,14 @@ import { Utterance } from "@/lib/utterance";
 import {
   EMPTY_REPLY_STATS,
   replyStats,
+  settled,
   type AgentIdentity,
   type EmailResult,
   type TranscriptEntry,
   type VoiceAgent,
 } from "@/lib/voice-agent";
 
-export type Snapshot = Omit<VoiceAgent, "setMode" | "start" | "end" | "pttDown" | "pttUp" | "submitEmail">;
+export type Snapshot = Omit<VoiceAgent, "setMode" | "start" | "stop" | "end" | "pttDown" | "pttUp" | "submitEmail">;
 
 const LANGUAGES: Language[] = ["en", "fr"];
 /** Frames kept from before speech starts, so the first syllable is not cut (about 320 ms). */
@@ -163,6 +164,7 @@ export class VoiceEngine {
         activeAgent: this.identity(session.agent),
       });
       const welcome = await this.loadLine(session.agent, session.welcome_line, signal);
+      if (signal.aborted) return; // Stop or Restart came first: the welcome line must not appear
       this.addLineEntry(session.agent, session.welcome_line);
       if (welcome) this.player.enqueue({ kind: "buffer", data: welcome, tag: "line" });
       this.player.whenDrained(() => this.becomeReady());
@@ -175,6 +177,23 @@ export class VoiceEngine {
   }
 
   async end(): Promise<void> {
+    this.teardown();
+    this.update(initialSnapshot(this.snap.mode));
+  }
+
+  /**
+   * Stop: the same teardown as `end()`, but the screen keeps the conversation as it stands, lines
+   * cut short included, with the status "ended" until Restart calls `end()`.
+   */
+  async stop(): Promise<void> {
+    if (this.snap.status !== "live") return;
+    const shown = this.snap.transcript;
+    this.teardown();
+    this.update({ status: "ended", activity: "idle", transcript: settled(shown) });
+  }
+
+  /** Silence the voice, close the mic and the transcription sockets, abort the requests, end the backend session. */
+  private teardown(): void {
     this.controller.abort();
     this.stopListening();
     this.settleLine(); // its STT timer would otherwise remove the next visitor's line
@@ -187,7 +206,6 @@ export class VoiceEngine {
     this.turn = null;
     this.joining = null;
     this.replySamples = [];
-    this.update(initialSnapshot(this.snap.mode));
   }
 
   setMode(mode: MicMode): void {

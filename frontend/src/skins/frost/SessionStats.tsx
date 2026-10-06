@@ -31,14 +31,18 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Whole seconds since the conversation screen appeared. Restart unmounts it, so each visitor starts at zero. */
-function useElapsed(): number {
+/**
+ * Whole seconds since the conversation screen appeared, frozen once the conversation stops running
+ * (Stop). Restart unmounts the screen, so each visitor starts at zero.
+ */
+function useElapsed(running: boolean): number {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
+    if (!running) return;
     const start = Date.now();
     const timer = window.setInterval(() => setSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [running]);
   return seconds;
 }
 
@@ -51,7 +55,7 @@ const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String
 export function SessionStats({ agent }: SkinProps) {
   const { language, replyStats: stats, costEur } = agent;
   const l = labels(language);
-  const elapsed = useElapsed();
+  const elapsed = useElapsed(agent.status === "live");
   const seconds = (ms: number | null) => (ms === null ? "" : formatSeconds(ms, language));
 
   return (
