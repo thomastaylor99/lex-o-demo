@@ -9,15 +9,17 @@ from app.catalogue.store import Catalogue
 from app.catalogue.tutorials import Tutorial, TutorialBank
 from app.conversation.agent import Tool, ToolResult, UiEvent
 from app.conversation.session import Session
-from app.tools.catalogue_tools import ROUTINE_TURN
+from app.tools.catalogue_tools import ROUTINE_PICK, ROUTINE_TURN, SKIN_CHOICE
 
-TUTORIALS_TURN = "tutorials_turn"  # the turn tutorials first showed: the hair bridge opens then
+# The turn the routine's tutorials step ran, shown or with none to show: the hair bridge opens then.
+TUTORIALS_TURN = "tutorials_turn"
 # Called right after get_routine, before the visitor answered about the routine, the tutorials
-# skipped the cleanser and opened the hair bridge a turn early (3 of 7 replays, 2026-10-06).
+# skipped the cleanser and opened the hair bridge a turn early (3 of 7 replays, 2026-10-06). Called
+# before any routine was suggested, they showed for the cream alone (Thomas's run, 2026-10-06).
 NOT_YET = {
     "count": 0,
-    "note": "The visitor has not answered about the routine yet. Do not mention tutorials: "
-    "suggest the routine products and ask whether they would like them.",
+    "note": "The visitor has not answered about their routine yet. Do not mention tutorials: "
+    "suggest the product that completes the routine and ask whether they would like it.",
 }
 NOTHING_TO_SHOW = {
     "count": 0,
@@ -37,13 +39,13 @@ def tutorials_tool(catalogue: Catalogue, bank: TutorialBank | None = None) -> To
     tutorials = bank if bank is not None else TutorialBank.load()
 
     async def handle(session: Session, args: ShowTutorialsArgs) -> ToolResult:
-        proposed = session.flags.get(ROUTINE_TURN) == session.turn_index
-        if proposed and len(session.basket.items) < 2:
+        if _routine_open(session):
             return ToolResult(content=json.dumps(NOT_YET))
         known = [pid for pid in args.product_ids if catalogue.get(pid) is not None]
         product_ids = known or [item.product_id for item in session.basket.items]
         chosen = tutorials.select(product_ids, session.language)
         if not chosen:
+            session.flags.setdefault(TUTORIALS_TURN, session.turn_index)
             return ToolResult(content=json.dumps(NOTHING_TO_SHOW))
 
         views = [tutorial.view() for tutorial in chosen]
@@ -65,6 +67,21 @@ def tutorials_tool(catalogue: Catalogue, bank: TutorialBank | None = None) -> To
         args_model=ShowTutorialsArgs,
         handler=handle,
     )
+
+
+def _routine_open(session: Session) -> bool:
+    """A skin product is in the basket and the visitor has not answered the product suggested to
+    complete its routine: the suggestion has not come yet, or it came this very turn."""
+    choice = session.flags.get(SKIN_CHOICE)
+    if choice is None:
+        return False
+    offered = session.flags.get(ROUTINE_TURN)
+    if offered is None or offered < choice["turn"]:
+        return True
+    pick = session.flags.get(ROUTINE_PICK)
+    if pick is None or any(item.product_id == pick["id"] for item in session.basket.items):
+        return False
+    return offered == session.turn_index
 
 
 def _summary(chosen: list[Tutorial]) -> dict[str, Any]:

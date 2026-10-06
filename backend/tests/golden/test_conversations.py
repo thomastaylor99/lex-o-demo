@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.agents.hair import asks_about_hair
-from app.agents.skincare import _first_named
+from app.agents.wording import first_named
 from app.catalogue.store import Catalogue
 from app.lang import Language
 from app.voice.language import detect
@@ -28,6 +28,7 @@ pytestmark = pytest.mark.golden
 GOLDEN_PATH_EN = [
     "Hi! I'm looking for a moisturiser, my skin has been feeling really tight lately.",
     "It's dry, mostly on my cheeks, and it gets red quite easily.",
+    "Hydration, mostly.",
     "A L'Oréal Paris day cream, I don't remember which one. I find it a bit too light, I love rich "
     "creams.",
     "I'm in my thirties, and I'd like to stay around twenty five euros.",
@@ -66,11 +67,12 @@ ECZEMA = [
     "I'm in my fifties.",
     "Will this cream cure my eczema?",
 ]
-# Thomas's live run of 2026-10-05: nothing about the skin yet, so all five questions come first.
+# Thomas's live run of 2026-10-05: nothing about the skin yet, so all six questions come first.
 DIAGNOSIS_FIRST = [
     "I'm looking for a new skincare routine, especially a new moisturizer.",
     "Quite dry, especially in winter.",
     "No, it never gets red.",
+    "Nothing in particular.",
     "Nothing special, just a basic cream from the supermarket.",
     "Something light, please.",
     "I'd rather not say.",
@@ -79,9 +81,38 @@ DIAGNOSIS_FIRST = [
 ASKS = [
     re.compile(r"dry|oily|combination|normal|feel|skin type", re.IGNORECASE),
     re.compile(r"red|react|sensitiv|sting|irritat", re.IGNORECASE),
+    re.compile(r"improve|help|concern|hydrat|radian|blemish|ageing|aging|lines", re.IGNORECASE),
     re.compile(r"use|using|moisturi|currently|at the moment|right now", re.IGNORECASE),
     re.compile(r"rich|light|texture", re.IGNORECASE),
     re.compile(r"age|old|decade|year", re.IGNORECASE),
+]
+# Thomas's two live runs of 2026-10-06, line for line up to the hair answer, with an answer to the
+# concern question added the same day. Both ended on the CeraVe AM lotion, which links no
+# cleanser: one run offered a cleanser and a serum, the other skipped to the tutorials with the
+# cream alone; "too thick" and "too rich" left the record's texture empty.
+THOMAS_RUN_1 = [
+    "I'm looking to get better products for my skincare routine.",
+    "I'm more looking for a moisturizer.",
+    "I would say normal.",
+    "It does not.",
+    "Hmm, maybe more radiance.",
+    "So now I have La Roche-Posay cream and I feel that it's maybe too thick.",
+    "I'm 27 years old.",
+    "The one you chose looks fine.",
+    "That would be great.",
+    "Felt normal.",
+]
+THOMAS_RUN_2 = [
+    "I'm looking to buy new products for my skincare routine.",
+    "I'm looking for a moisturizer.",
+    "It's normal.",
+    "No.",
+    "Mostly hydration, I'd say.",
+    "I use La Roche-Posay one and I feel that the texture is too rich.",
+    "I'm 27 years old.",
+    "I think the first one, the one you picked is good.",
+    "Yeah, that would be great.",
+    "It feels greasy.",
 ]
 # Thomas, 2026-10-06: an opening that names no product gets the product question first.
 VAGUE_OPENINGS: list[tuple[Language, str]] = [
@@ -123,16 +154,69 @@ def assert_top_pick_said(turns: list[Turn]) -> None:
             continue
         last = turn.events.index(searches[-1])
         said = " ".join(e["text"] for e in turn.events[last:] if e["type"] == "text.done")
-        assert _first_named(said, searches[-1]["products"]) == searches[-1]["best_match_id"], said
+        assert first_named(said, searches[-1]["products"]) == searches[-1]["best_match_id"], said
+
+
+def assert_routine_completed(turns: list[Turn], catalogue: Catalogue) -> None:
+    """The turn the cream goes in suggests one cleanser by name; the visitor's yes adds it and
+    shows the tutorials for both, then the hair question; nothing else is suggested."""
+    choice = next(i for i, turn in enumerate(turns) if turn.calls("add_to_basket"))
+    offered, answered = turns[choice], turns[choice + 1]
+    routines = [event for event in offered.of("products.shown") if not event["best_match_id"]]
+    assert len(routines) == 1 and len(routines[0]["products"]) == 1, offered.of("products.shown")
+    cleanser = routines[0]["products"][0]
+    assert cleanser["category"] == "cleanser", cleanser
+    assert first_named(offered.reply(), [cleanser]) == cleanser["id"], offered.reply()
+    assert "?" in offered.reply(), offered.reply()
+
+    added = [event["args"].get("product_ids", []) for event in answered.calls("add_to_basket")]
+    assert any(cleanser["id"] in ids for ids in added), added
+    [shown] = answered.of("tutorials.shown")
+    cream = turns[choice].calls("add_to_basket")[0]["args"]["product_ids"][0]
+    covered = {pid for tutorial in shown["tutorials"] for pid in tutorial["product_ids"]}
+    assert {cream, cleanser["id"]} <= covered, covered
+    assert asks_about_hair(answered.reply()), answered.reply()
+
+    kinds = {
+        catalogue.get(product["id"]).category
+        for turn in turns
+        for event in turn.of("products.shown")
+        for product in event["products"]
+    }
+    assert kinds <= {"moisturiser", "cleanser", "haircare"}, kinds
+
+
+def assert_record_filled(turns: list[Turn]) -> None:
+    """The customer record holds the product they use now, the texture its fault implies, a
+    concern, and the budget and routine size their choices show."""
+    profile = turns[-1].of("profile.updated")[-1]["profile"]
+    feedback = profile["product_feedback"]
+    assert any("roche" in (item["brand"] or "").lower() for item in feedback), feedback
+    assert profile["texture_preference"] == "light", profile
+    assert profile["concerns"], profile
+    assert profile["budget_band"] and profile["routine_size"], profile
+    assert {"budget_band", "routine_size"} <= set(profile["inferred"]), profile
+
+
+@pytest.mark.parametrize("lines", [THOMAS_RUN_1, THOMAS_RUN_2], ids=["run_1", "run_2"])
+def test_thomas_runs_complete_the_routine_the_same_way(
+    live: TestClient, catalogue: Catalogue, lines: list[str]
+):
+    turns = converse(live, english(lines))
+
+    assert_top_pick_said(turns)
+    assert_routine_completed(turns, catalogue)
+    assert_record_filled(turns)
 
 
 def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     turns = converse(live, english(GOLDEN_PATH_EN), typed_email=TYPED_EMAIL)
 
     assert handed_over(turns[0]), [event["type"] for event in turns[0].events]
-    # "tight" gives the skin type and the feedback gives the texture: redness, the product used
-    # now and the age range come before the products, on turn 4.
-    assert [bool(turn.of("products.shown")) for turn in turns[:4]] == [False, False, False, True]
+    # "tight" gives the skin type and the feedback gives the texture: redness, the concern, the
+    # product used now and the age range come before the products, on turn 5.
+    shown = [bool(turn.of("products.shown")) for turn in turns[:5]]
+    assert shown == [False, False, False, False, True], shown
     called = {event["name"] for turn in turns for event in turn.of("tool.started")}
     journey = {"search_products", "get_routine", "add_to_basket", "save_profile", "show_tutorials"}
     assert journey <= called, called
@@ -142,7 +226,7 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     # The hair bridge: the turn the tutorials show ends on a question about hair, the answer
     # brings both haircare products with the oil first, and the oil goes in the basket in the
     # turn that asks to save the profile.
-    tutorials, answered, accepted = turns[5], turns[6], turns[7]
+    tutorials, answered, accepted = turns[6], turns[7], turns[8]
     assert tutorials.calls("show_tutorials"), [event["type"] for event in tutorials.events]
     assert asks_about_hair(tutorials.reply()), tutorials.reply()
     hair = [
@@ -190,10 +274,12 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     assert (profile["skin_type"], profile["sensitive"]) == ("dry", True), profile
     assert (profile["texture_preference"], profile["budget_band"]) == ("rich", "20_to_40"), profile
     assert profile["age_range"] == "30s", profile
+    assert "hydration" in profile["concerns"], profile
     assert (profile["hair_type"], profile["hair_concerns"]) == ("wavy", ["dry_hair"]), profile
     assert any("oréal" in (item["brand"] or "").lower() for item in profile["product_feedback"])
     assert profile["email"] == recap["email_masked"], profile
     assert_top_pick_said(turns)
+    assert_routine_completed(turns, catalogue)
     breaches = judge.breaches(turns) + judge.recap_breaches(turns)
     assert not breaches, "\n".join(breaches)
 
@@ -214,7 +300,7 @@ def test_an_address_said_aloud_is_typed_on_screen(live: TestClient):
 def test_the_diagnosis_comes_before_any_product(live: TestClient, catalogue: Catalogue):
     turns = converse(live, english(DIAGNOSIS_FIRST))
 
-    asking, answered = turns[:5], turns[5]
+    asking, answered = turns[:6], turns[6]
     assert not [turn.reply() for turn in asking if turn.of("products.shown")]
     for turn, topic in zip(asking, ASKS, strict=True):
         assert topic.search(turn.reply()), turn.reply()

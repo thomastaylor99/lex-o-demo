@@ -8,6 +8,7 @@ Read this first in a new session, then `AGENTS.md` for the rules and `specs/v2/a
 
 - `main` is at `0888b10` ("v2: demo-ready voice concierge, open fixes listed in backlog.md"), pushed to Thomas's private GitHub repo `lex-o-demo` on 2026-10-06. `integrate/v1-2` points to the same commit.
 - Every check passed on that commit: quick checks, the production build, the four browser tests (scripted conversation, camera switch, product sheet, real audio through a fake microphone), and the golden conversations, 7 of 7 in three runs in a row.
+- Since then, on 2026-10-06: `main` at `2b3c7eb` merged the top-pick fix, the hesitation fix (`fix/speech-buffer`), Stop (`feat/stop-button`) and the hair bridge with the product question (`feat/hair-cross-sell`). Branch `feat/journey-routine` adds the routine in code (one cleanser right after the cream, the tutorials for both, then hair) and a fuller record (concern question, texture from the current cream, budget and routine size from the basket); see `context/decisions.md`, 2026-10-06.
 - Dry run: 2026-10-06 at 15:30. Event: Wednesday 2026-10-07, 11:00 to 13:00, Mistral office, room 2.11, a 20-minute hands-on slot (`context/brief.md`).
 - Version names: "v2" is this demo-ready commit. `specs/README.md` once used V2 for the camera; the camera (spec 004) is still unbuilt, apart from its slot behind `?camera=1`.
 
@@ -50,8 +51,8 @@ Tests: 374 backend and 43 frontend unit tests, 3 browser tests plus the real-aud
 ## How a conversation runs now
 
 1. Welcome line, then the visitor's need. The concierge hands over in code; its line plays, and the expert introduces itself and asks the first open diagnosis question in the same turn.
-2. One to five diagnosis questions, then the forced search: the expert presents the top pick with one reason from the visitor's words and one approved claim; two alternatives are on screen.
-3. The visitor chooses; the basket fills; the routine completes around the cream; one hair question; tutorials appear (a context note triggers them); the expert asks to save the profile; after consent the email field appears; the typed address brings the recap preview.
+2. One to seven diagnosis questions (the product sought if unnamed, skin type, redness, what to improve, the current moisturiser, texture, age range), then the forced search: the expert presents the top pick with one reason from the visitor's words and one approved claim; two alternatives are on screen.
+3. The visitor chooses; the cream goes in the basket and, in the same turn, the expert offers the one cleanser that suits the skin; a yes adds it, and the tutorials for the routine show with the hair question; the hair suggestion; the expert asks to save the profile; after consent the email field appears; the typed address brings the recap preview. Each step after the choice is picked in code (`backend/app/agents/routine.py`, `hair.py`).
 4. The customer record fills as the visitor talks; reply times and cost update after each turn.
 
 Sample from the live server on 2026-10-05: "I'm looking for a new skincare routine, especially a new moisturizer" brought questions on skin type, redness and the current moisturiser; "I had a L'Oréal one, I don't know which, but I found the texture too heavy" answered texture too; the age question came as optional; the top pick was a light cream "that won't feel heavy".
@@ -59,6 +60,8 @@ Sample from the live server on 2026-10-05: "I'm looking for a new skincare routi
 ## Risks to watch at the dry run
 
 - The spoken top pick matches the screen's since 2026-10-06 (the search names its `top_pick`, and a reply that presents another product is replaced).
+- The journey after the choice: Thomas's two live runs of 2026-10-06 replayed 10 times kept it every time. To check again after any change to prompts or steps: `cd backend && uv run python -m scripts.replay_journey 5` (about 3 minutes, a few cents).
+- Reading a live run: each turn logs `turn_done` with the visitor's words and the reply. A backend started by another session (another worktree, another port) logs to that session's task output under `/private/tmp/claude-501/`; Thomas's runs of 2026-10-06 went through the `hair-cross-sell` backend on port 8001.
 - Claims on presentation turns: twice on 2026-10-05 (before the last fixes) the expert added an effect no approved claim holds ("reduces wrinkles"); none in 21 conversations since. If it recurs, apply the diagnosis reply check to presentation turns (`backlog.md`, Claims risk to watch).
 - Hands-free in a busy room: the noise threshold and the resume of a paused line were tested with clean recorded audio only. The fallback is hold to talk (button or space bar).
 - Sessions expire after 30 idle minutes, and every turn then fails silently (`backlog.md`, fix 1): press Restart before each visitor and after a long pause.

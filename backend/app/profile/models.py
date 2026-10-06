@@ -83,6 +83,9 @@ class BeautyProfile(ProfileUpdate):
     language: Language | None = None
     consent: Consent = Consent.PENDING
     email: str | None = None  # masked (c***@gmail.com); set by the recap route only
+    # The fields the code read from the basket, where the visitor stated nothing
+    # (`app/profile/inferred.py`); a value the visitor states takes the field back.
+    inferred: list[str] = []
 
 
 def merge(profile: BeautyProfile, update: ProfileUpdate) -> BeautyProfile:
@@ -108,4 +111,5 @@ def merge(profile: BeautyProfile, update: ProfileUpdate) -> BeautyProfile:
             continue
         else:
             data[name] = value
+            data["inferred"] = [field for field in data["inferred"] if field != name]
     return BeautyProfile.model_validate(data)

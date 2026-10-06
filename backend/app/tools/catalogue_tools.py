@@ -8,18 +8,27 @@ from pydantic import BaseModel, Field
 
 from app.catalogue.fit import fit_sentence, search_profile
 from app.catalogue.models import Category, Concern, Product, SkinType, TexturePreference
+from app.catalogue.pairing import SKINCARE, routine_partner
 from app.catalogue.ranking import SearchQuery, search
 from app.catalogue.store import Catalogue
 from app.conversation.agent import Tool, ToolResult, UiEvent
 from app.conversation.session import Session
 from app.lang import Language
+from app.profile.inferred import stated
 from app.profile.models import AgeRange, BeautyProfile
 from app.tools.views import product_view
 
 LAST_SEARCH_TURN = "last_search_turn"
 SEARCH_TURNS = "search_turns"  # the first turn each category was searched
 ROUTINE_TURN = "routine_turn"  # the last turn get_routine ran
+ROUTINE_PICK = "routine_pick"  # the product view get_routine last suggested; None: nothing to add
 FIRST_SHOWN = "first_shown"  # product id: the turn it first showed, which add_to_basket reads
+SKIN_CHOICE = (
+    "skin_choice"  # set by add_to_basket: the first skin product in the basket, {id, turn}
+)
+ROUTINE_COMPLETE = {
+    "note": "The basket already completes the routine: suggest nothing more for it."
+}
 
 
 class SearchArgs(BaseModel):
@@ -57,9 +66,7 @@ class SearchArgs(BaseModel):
 
 
 class RoutineArgs(BaseModel):
-    product_id: str = Field(
-        description="Id of the product to build the surrounding routine around."
-    )
+    product_id: str = Field(description="Id of the product the visitor chose, to build on.")
 
 
 def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
@@ -76,7 +83,8 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
             age_range=args.age_range,
         )
         outcome = search(catalogue.all(), query, session.language)
-        views = _views(outcome.products, search_profile(session.profile, query), session.language)
+        profile = search_profile(stated(session.profile), query)
+        views = _views(outcome.products, profile, session.language)
 
         session.flags[LAST_SEARCH_TURN] = session.turn_index
         session.flags["last_results"] = views  # the expert's reply must present views[0] first
@@ -104,40 +112,40 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
         )
 
     async def handle_get_routine(session: Session, args: RoutineArgs) -> ToolResult:
-        product = catalogue.get(args.product_id)
-        if product is None:
+        """The one product that completes the routine (Thomas, 2026-10-06: the cream and one
+        cleanser), suited to the visitor's skin (`app/catalogue/pairing.py`)."""
+        chosen = _routine_anchor(catalogue, session, args.product_id)
+        if chosen is None:
             return ToolResult(content=json.dumps({"error": "unknown product"}, ensure_ascii=False))
 
+        have = {
+            p.category for item in session.basket.items if (p := catalogue.get(item.product_id))
+        }
+        profile = stated(session.profile)
+        partner = routine_partner(catalogue.all(), chosen, profile, session.language, have)
+        paired = [partner] if partner is not None else []
+        views = _views(paired, profile, session.language)
         session.flags[ROUTINE_TURN] = session.turn_index
-        paired = [
-            partner
-            for partner_id in product.pairs_with
-            if (partner := catalogue.get(partner_id)) is not None
-            and partner.has_language(session.language)
-        ]
-        views = _views(paired, session.profile, session.language)
-
+        session.flags[ROUTINE_PICK] = views[0] if views else None
         _record_shown(session, paired)
 
-        content = json.dumps(
-            {
-                "for": product.id,
-                "usage_notes": [
-                    {"id": note.id, "text": note.text}
-                    for note in product.notes_in(session.language)
-                ],
-                "routine": [
-                    {"step": partner.routine_step, "product": view}
-                    for partner, view in zip(paired, views, strict=True)
-                ],
-            },
-            ensure_ascii=False,
-        )
-        return ToolResult(
-            content=content,
-            ui_events=[
-                UiEvent(type="products.shown", payload={"products": views, "best_match_id": None})
+        body: dict[str, Any] = {
+            "for": chosen.id,
+            "usage_notes": [
+                {"id": note.id, "text": note.text} for note in chosen.notes_in(session.language)
             ],
+            "routine": [
+                {"step": product.routine_step, "product": view}
+                for product, view in zip(paired, views, strict=True)
+            ],
+        }
+        if not views:
+            body |= ROUTINE_COMPLETE
+        events = [
+            UiEvent(type="products.shown", payload={"products": views, "best_match_id": None})
+        ]
+        return ToolResult(
+            content=json.dumps(body, ensure_ascii=False), ui_events=events if views else []
         )
 
     search_tool = Tool(
@@ -151,11 +159,22 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
     )
     routine_tool = Tool(
         name="get_routine",
-        description="Get the products that pair with a chosen product to complete a routine.",
+        description="Get the one product that completes the routine around a chosen product.",
         args_model=RoutineArgs,
         handler=handle_get_routine,
     )
     return search_tool, routine_tool
+
+
+def _routine_anchor(catalogue: Catalogue, session: Session, product_id: str) -> Product | None:
+    """The skin product the routine grows around: the visitor's first skin choice in the basket,
+    else the product named, if it is a skin product."""
+    choice = session.flags.get(SKIN_CHOICE)
+    first = catalogue.get(choice["id"]) if choice else None
+    named = catalogue.get(product_id)
+    if first is not None:
+        return first
+    return named if named is not None and named.category in SKINCARE else None
 
 
 def _record_shown(session: Session, products: list[Product]) -> None:

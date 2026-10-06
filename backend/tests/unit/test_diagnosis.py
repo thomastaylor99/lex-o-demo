@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.agents.diagnosis import Diagnosis, Topic, known, mentioned
-from app.catalogue.models import SkinType, TexturePreference
+from app.agents.diagnosis import Diagnosis, Topic, implied_texture, known, mentioned
+from app.catalogue.models import Concern, SkinType, TexturePreference
 from app.profile.models import AgeRange, BeautyProfile, ProductFeedback
 
 EMPTY = BeautyProfile()
@@ -32,7 +32,13 @@ EMPTY = BeautyProfile()
         ("Je cherche un sérum.", {Topic.PRODUCT}),
         ("I'm on a tight budget.", set()),
         ("Brilliant, give me a sec.", set()),
-        ("I'd like to reduce the first lines.", set()),
+        ("I'd like to reduce the first lines.", {Topic.CONCERN}),
+        ("Mostly hydration, I'd say.", {Topic.CONCERN}),
+        ("Maybe more radiance.", {Topic.CONCERN}),
+        ("Plus d'éclat, et moins de rides.", {Topic.CONCERN}),
+        ("Je cherche une crème hydratante.", {Topic.PRODUCT}),
+        ("I'd like a moisturiser for the first signs of ageing.", {Topic.PRODUCT, Topic.CONCERN}),
+        ("The texture is nice.", set()),
         (
             "I use a L'Oréal cream, but it's too heavy.",
             {Topic.CURRENT_PRODUCT, Topic.TEXTURE, Topic.PRODUCT},
@@ -58,6 +64,8 @@ def test_the_profile_answers_what_it_holds() -> None:
     assert known(BeautyProfile(texture_preference=TexturePreference.RICH)) == {Topic.TEXTURE}
     assert known(feedback) == {Topic.CURRENT_PRODUCT}
     assert known(BeautyProfile(age_range=AgeRange.FORTIES)) == {Topic.AGE}
+    # The extractor reads concerns into "quite dry": only words or the question answer the topic.
+    assert known(BeautyProfile(concerns=[Concern.HYDRATION])) == set()
     assert known(EMPTY) == set()
 
 
@@ -71,14 +79,21 @@ def run(*lines: str, profile: BeautyProfile = EMPTY) -> list[Topic | None]:
     return asked
 
 
-def test_five_questions_in_order_when_the_visitor_volunteers_nothing() -> None:
+def test_six_questions_in_order_when_the_visitor_volunteers_nothing() -> None:
     asked = run(
-        "A new moisturiser.", "Quite oily.", "No, never.", "Nothing special.", "Light.", "I'm 34."
+        "A new moisturiser.",
+        "Quite oily.",
+        "No, never.",
+        "Nothing in particular.",
+        "Nothing special.",
+        "Light.",
+        "I'm 34.",
     )
 
     assert asked == [
         Topic.SKIN_TYPE,
         Topic.REDNESS,
+        Topic.CONCERN,
         Topic.CURRENT_PRODUCT,
         Topic.TEXTURE,
         Topic.AGE,
@@ -104,15 +119,18 @@ def test_a_topic_the_visitor_already_mentioned_is_skipped() -> None:
     asked = run(
         "Hi! I'm looking for a moisturiser, my skin has been feeling really tight lately.",
         "It's dry, mostly on my cheeks, and it gets red quite easily.",
+        "Mostly hydration.",
         "I use a L'Oréal Paris day cream, but it feels too light.",
         "I'm thirty-eight.",
     )
 
-    assert asked == [Topic.REDNESS, Topic.CURRENT_PRODUCT, Topic.AGE, None]
+    assert asked == [Topic.REDNESS, Topic.CONCERN, Topic.CURRENT_PRODUCT, Topic.AGE, None]
 
 
 def test_a_first_sentence_that_covers_everything_needs_no_question() -> None:
-    assert run("I'm 42 and I use a rich cream for my dry skin, which reddens easily.") == [None]
+    said = "I'm 42 and I use a rich cream for my dry skin, which reddens easily and lacks moisture."
+
+    assert run(said) == [None]
 
 
 def test_a_topic_the_profile_holds_is_skipped() -> None:
@@ -146,3 +164,19 @@ def test_advance_reads_each_turn_once() -> None:
     assert diagnosis.asking == Topic.SKIN_TYPE
     assert diagnosis.asks == {Topic.SKIN_TYPE: 1}
     assert not diagnosis.complete
+
+
+@pytest.mark.parametrize(
+    "said, texture",
+    [
+        # Thomas's two runs of 2026-10-06
+        ("So now I have La Roche-Posay cream and I feel that it's maybe too thick.", "light"),
+        ("I use La Roche-Posay one and I feel that the texture is too rich.", "light"),
+        ("I find it a bit too light, I love rich creams.", "rich"),
+        ("It's not nourishing enough in winter.", "rich"),
+        ("Elle est trop riche pour moi.", "light"),
+        ("It's fine, I like it.", None),
+    ],
+)
+def test_a_complaint_about_the_current_cream_implies_a_texture(said: str, texture: str | None):
+    assert implied_texture(said) == texture

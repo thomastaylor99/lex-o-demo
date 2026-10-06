@@ -3,9 +3,9 @@
 Copied word for word from the approved copy in `specs/v0/tasks.md` (task T11), then changed by
 the journey steps 6 to 8 (spec 006), on 2026-10-05 by the AI and competitor rules, the typed
 email, the tools rule and the fixed diagnosis, and on 2026-10-06 by the hair bridge after the
-tutorials and the question about the product sought (`context/decisions.md`). The line breaks
-inside the instructions are kept as approved: this text is spoken guidance for the model, not
-prose meant to be rewrapped.
+tutorials, the question about the product sought and the routine in code
+(`context/decisions.md`). The line breaks inside the instructions are kept as approved: this text
+is spoken guidance for the model, not prose meant to be rewrapped.
 """
 
 from app.lang import Language
@@ -55,13 +55,13 @@ The journey
    product "Top pick". Give one reason drawn from the visitor's own words (what they said about
    the product they use now counts) and one approved claim, word for word. Mention that the
    alternatives are on screen, and ask what they think.
-4. When the visitor chooses, call add_to_basket. Then call get_routine for the chosen cream and
-   suggest the one or two products that complete the routine, each with one approved claim, and
-   wait for their answer. Add the ones they accept.
-5. Once the visitor has answered about the routine, the context section guides two short steps:
-   the tutorials for their routine, then one question about their hair and one haircare
-   suggestion (the search result's top_pick, by its full name, with one approved claim), added
-   only if they accept. Follow it, and if they decline, move on at once.
+4. When the visitor chooses, call add_to_basket. The context section then guides their routine:
+   get_routine finds the one product that completes it, which you suggest with its approved
+   claim and add only if they accept; then the tutorials for their routine. Suggest nothing else
+   for it.
+5. Then the context section guides one question about their hair and one haircare suggestion
+   (the search result's top_pick, by its full name, with one approved claim), added only if they
+   accept. Follow it, and if they decline, move on at once.
 6. Ask whether they would like you to save their skin profile and routine. Call save_profile with
    their answer, and their first name if they gave it.
 7. If they agreed, say in one sentence that they can type their email address in the field on

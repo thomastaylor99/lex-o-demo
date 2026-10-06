@@ -8,7 +8,7 @@ import pytest
 from app.catalogue.models import SkinType
 from app.catalogue.store import Catalogue
 from app.conversation.session import Session
-from app.profile.models import Consent
+from app.profile.models import BudgetBand, Consent, ProfileUpdate, RoutineSize, merge
 from app.tools import build_tools
 from app.tools.views import product_view
 
@@ -269,10 +269,36 @@ async def test_add_to_basket_reports_added_already_in_basket_and_unknown():
     assert body["basket"] == session.basket.view()
     assert [item["product_id"] for item in body["basket"]["items"]] == ["fx-rich-dry"]
 
-    assert len(result.ui_events) == 1
-    event = result.ui_events[0]
-    assert event.type == "basket.updated"
-    assert event.payload == session.basket.view()
+    basket, profile = result.ui_events
+    assert basket.type == "basket.updated"
+    assert basket.payload == session.basket.view()
+    assert profile.type == "profile.updated"
+    assert profile.payload["profile"]["budget_band"] == "20_to_40"  # the €24.90 cream
+
+
+async def test_the_basket_gives_the_record_a_budget_and_routine_size_the_visitor_never_stated():
+    """Thomas, 2026-10-06: the budget can be inferred from the products chosen, and evolve."""
+    tool = build_tools(_catalogue())["add_to_basket"]
+    session = _session()
+
+    await tool.handler(session, tool.args_model(product_ids=["fx-gel-oily"]))  # €12.50
+    assert (session.profile.budget_band, session.profile.routine_size) == ("under_20", "minimal")
+    assert session.profile.inferred == ["budget_band", "routine_size"]
+
+    await tool.handler(session, tool.args_model(product_ids=["fx-luxe-firm"]))  # €95
+    assert session.profile.budget_band == "over_80"
+
+
+async def test_a_budget_the_visitor_states_stays_and_takes_the_field_back():
+    tool = build_tools(_catalogue())["add_to_basket"]
+    session = _session()
+    session.profile = merge(session.profile, ProfileUpdate(budget_band=BudgetBand.FROM_40_TO_80))
+
+    await tool.handler(session, tool.args_model(product_ids=["fx-gel-oily"]))
+    assert (session.profile.budget_band, session.profile.inferred) == ("40_to_80", ["routine_size"])
+
+    session.profile = merge(session.profile, ProfileUpdate(routine_size=RoutineSize.STANDARD))
+    assert session.profile.inferred == []
 
 
 async def test_add_to_basket_unknown_id_alone_breaks_nothing():

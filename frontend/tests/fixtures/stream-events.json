@@ -159,7 +159,8 @@
       "product_feedback": [],
       "language": "en",
       "consent": "pending",
-      "email": null
+      "email": null,
+      "inferred": []
     }
   },
   {

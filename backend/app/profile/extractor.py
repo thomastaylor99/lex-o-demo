@@ -76,10 +76,15 @@ Fields and their allowed values:
   their skin lacks moisture or feels dehydrated), sensitivity, first_signs_of_ageing,
   firmness_wrinkles, radiance, blemish_prone. The product they ask for is never a concern:
   asking for a moisturiser or a cream does not mean hydration. A feeling such as tightness
-  sets skin_type, not concerns. Empty list if none named.
+  sets skin_type, not concerns. What they say they would like to improve counts: more
+  hydration is hydration, glow or dullness is radiance, fine lines are first_signs_of_ageing,
+  wrinkles or firmness are firmness_wrinkles, spots or breakouts are blemish_prone. Empty list
+  if none named.
 - sensitive: true if the visitor says their skin reacts easily (redness, stinging, itching);
   false only if they say it does not react easily; null if they do not say either way.
-- texture_preference: rich or light. Null if not stated.
+- texture_preference: rich or light, stated or implied by what they say of a product they use:
+  one they find too heavy, thick, rich or greasy means light; one they find too light, or not
+  nourishing enough, means rich. Null if neither.
 - budget_max_eur: the most the visitor wants to spend on one product, in euros, as a plain
   number. A range such as "twenty to thirty euros" is its upper end. Null if no budget is given.
 - routine_size: minimal (one to three products), standard (four or five), full (six or more).

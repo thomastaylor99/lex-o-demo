@@ -3,7 +3,9 @@
 Thomas, 2026-10-05: skin type, redness, the product they use now (feedback for the brands'
 marketing teams), texture, then age range (optional), skipping what the visitor already said.
 Thomas, 2026-10-06: first, which product they are looking for, when neither their words nor the
-concierge's summary named one.
+concierge's summary named one; after redness, what they would most like to improve, so the record
+holds their concerns; and a texture counts as answered only with a direction ("too thick" means
+light), so the record holds it too.
 The code picks each turn's topic and holds the search until the diagnosis is complete; the
 model only words the question. A topic is answered once the visitor's words mention it, once the
 profile holds it, or once the expert asked about it and the visitor replied with anything but a
@@ -14,6 +16,7 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from app.catalogue.models import TexturePreference
 from app.conversation.session import Session
 from app.profile.models import BeautyProfile
 
@@ -22,6 +25,7 @@ class Topic(StrEnum):
     PRODUCT = "product"
     SKIN_TYPE = "skin_type"
     REDNESS = "redness"
+    CONCERN = "concern"
     CURRENT_PRODUCT = "current_product"
     TEXTURE = "texture"
     AGE = "age"
@@ -32,6 +36,7 @@ ORDER = (
     Topic.PRODUCT,
     Topic.SKIN_TYPE,
     Topic.REDNESS,
+    Topic.CONCERN,
     Topic.CURRENT_PRODUCT,
     Topic.TEXTURE,
     Topic.AGE,
@@ -43,6 +48,8 @@ QUESTIONS: dict[Topic, str] = {
     "sunscreen",
     Topic.SKIN_TYPE: "how their skin usually feels: dry, oily, combination or normal",
     Topic.REDNESS: "whether their skin reddens, stings or reacts when they apply a cream",
+    Topic.CONCERN: "what they would most like to improve for their skin, such as hydration, "
+    "blemishes or the first signs of ageing",
     Topic.CURRENT_PRODUCT: "which moisturiser they use at the moment and how they find it",
     Topic.TEXTURE: "whether they prefer a light or a rich texture",
     Topic.AGE: "their age range, saying it is optional and that a decade is enough",
@@ -72,10 +79,19 @@ MENTIONS: dict[Topic, re.Pattern[str]] = {
         r"sensibles?|sensibilité|picot\w*|irrit\w*|démang\w*|brûl\w*|échauff\w*)\b",
         re.IGNORECASE,
     ),
+    # Concerns beyond redness, which has its own topic. "Hydratante" names the product in French.
+    Topic.CONCERN: re.compile(
+        r"\b(hydrat(?:ion|ed|ing|e)|dehydrat\w*|moisture|radian\w*|glow\w*|dull\w*|"
+        r"blemish\w*|spots?|pimples?|breakouts?|imperfections?|lines|wrinkl\w*|age?ing|"
+        r"anti-?age|firm\w*|sagging|hydratation|éclat|terne|boutons?|ridules?|rides|fermeté|"
+        r"vieilliss\w*|anti-?âge)\b",
+        re.IGNORECASE,
+    ),
+    # Only words with a direction: "the texture is nice" says nothing the record can hold.
     Topic.TEXTURE: re.compile(
         r"\b(rich|richer|light|lighter|lightweight|thick|thicker|heavy|creamy|gel|fluid|lotion|"
-        r"balm|textures?|riches?|légers?|légères?|épais|épaisses?|onctueu\w*|crémeuses?|"
-        r"fluides?|baumes?)\b",
+        r"balm|riches?|légers?|légères?|épais|épaisses?|onctueu\w*|crémeuses?|fluides?|"
+        r"baumes?)\b",
         re.IGNORECASE,
     ),
     Topic.CURRENT_PRODUCT: re.compile(
@@ -103,7 +119,8 @@ ASKS: dict[Topic, re.Pattern[str]] = {
         re.IGNORECASE,
     ),
     Topic.SKIN_TYPE: re.compile(
-        r"dry|oily|combination|normal|skin type|sèche|grasse|mixte|normale|type de peau",
+        r"dry|oily|combination|normal|skin type|skin (?:usually |normally |generally )?feel|"
+        r"sèche|grasse|mixte|normale|type de peau",
         re.IGNORECASE,
     ),
     Topic.REDNESS: re.compile(
@@ -111,8 +128,13 @@ ASKS: dict[Topic, re.Pattern[str]] = {
         r"picot|démang|brûl",
         re.IGNORECASE,
     ),
+    Topic.CONCERN: re.compile(
+        r"improve|help|work on|concern|focus|hydrat|radian|glow|blemish|ageing|aging|lines|"
+        r"wrinkl|firm|amélior|aider|préoccup|hydratation|éclat|imperfection|âge|rides|fermeté",
+        re.IGNORECASE,
+    ),
     Topic.CURRENT_PRODUCT: re.compile(
-        r"\buse|using|currently|at the moment|right now|routine|utilis|en ce moment|actuellement",
+        r"\buse|using|current|at the moment|right now|routine|utilis|en ce moment|actuel",
         re.IGNORECASE,
     ),
     Topic.TEXTURE: re.compile(
@@ -121,7 +143,27 @@ ASKS: dict[Topic, re.Pattern[str]] = {
     Topic.AGE: re.compile(r"\bage\b|\bold\b|decade|years|\bâge\b|\bans\b|décennie", re.IGNORECASE),
 }
 
+# The texture a complaint about the current cream implies, which the next question says back
+# (Thomas, 2026-10-06: "too thick" was heard as an answer, and the record stayed empty).
+TOO_HEAVY = re.compile(
+    r"\btoo (?:thick|heavy|rich|greasy|creamy|oily)|\btrop (?:épaisse?|lourde?|riche|grasse?)",
+    re.IGNORECASE,
+)
+TOO_LIGHT = re.compile(
+    r"\btoo (?:light|thin|runny)|\bnot (?:rich|nourishing|moisturi\w+) enough|"
+    r"\btrop (?:légère?|fluide)|\bpas assez (?:riche|nourrissante?|hydratante?)",
+    re.IGNORECASE,
+)
+
 FLAG = "diagnosis"
+
+
+def implied_texture(text: str) -> TexturePreference | None:
+    """Light when the visitor finds their cream too heavy, rich when they find it too light."""
+    heavy, light = TOO_HEAVY.search(text) is not None, TOO_LIGHT.search(text) is not None
+    if heavy == light:
+        return None
+    return TexturePreference.LIGHT if heavy else TexturePreference.RICH
 
 
 def mentioned(text: str) -> set[Topic]:
@@ -130,7 +172,9 @@ def mentioned(text: str) -> set[Topic]:
 
 
 def known(profile: BeautyProfile) -> set[Topic]:
-    """The topics the profile already holds, from the extractor's earlier turns."""
+    """The topics the profile already holds, from the extractor's earlier turns. The concern is
+    left out: the extractor read "quite dry" as a hydration concern in a golden run and the
+    question never came, so only the visitor's words or the question answer it."""
     held = {
         Topic.SKIN_TYPE: profile.skin_type is not None,
         Topic.REDNESS: profile.sensitive is not None,

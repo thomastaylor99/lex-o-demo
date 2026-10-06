@@ -2,8 +2,9 @@
 
 The diagnosis comes first, the same way every time (`app/agents/diagnosis.py`): while a topic is
 open the expert has no tools and the context names the topic to ask about; once it is complete,
-the search is forced in that same turn. Once the routine's tutorials are on screen, the hair
-bridge (`app/agents/hair.py`) names each of its steps in the context the same way.
+the search is forced in that same turn. Once the visitor has chosen, the routine
+(`app/agents/routine.py`) and then the hair bridge (`app/agents/hair.py`) name each of their steps
+in the context the same way.
 """
 
 import json
@@ -13,23 +14,34 @@ from typing import Any
 
 import structlog
 
-from app.agents.diagnosis import ASKS, QUESTIONS, Topic, diagnosis_for
+from app.agents.diagnosis import ASKS, QUESTIONS, Topic, diagnosis_for, implied_texture
 from app.agents.hair import HairStep, hair_pick, hair_search_due, hair_step, with_hair_question
 from app.agents.prompts import LINES, SKINCARE_INSTRUCTIONS
+from app.agents.routine import (
+    RoutineStep,
+    routine_choice,
+    routine_notes,
+    routine_step,
+    vet_offer,
+    vet_shown,
+)
 from app.agents.voices import SKINCARE_VOICES
+from app.agents.wording import first_named, full_name, sentence
+from app.catalogue.models import TexturePreference
 from app.conversation.agent import AgentConfig, Tool, force
 from app.conversation.session import Session
 from app.conversation.stream import ToolChoice
 from app.lang import LANGUAGE_NAMES, Language
+from app.profile.inferred import stated
 from app.profile.models import Consent
 from app.recap.email import redact_emails
 from app.recap.service import RECAP_FLAG
 
 logger = structlog.get_logger()
 
-# Expert turns (since the handoff) without a search before the loop forces one: the six
+# Expert turns (since the handoff) without a search before the loop forces one: the seven
 # diagnosis questions and one asked again.
-TURNS_BEFORE_FORCED_SEARCH = 7
+TURNS_BEFORE_FORCED_SEARCH = 8
 SEARCHED = "last_search_turn"  # set by search_products
 
 # A named skin condition or a request for a cure, in English or French (claims policy).
@@ -37,12 +49,6 @@ MEDICAL = re.compile(
     r"eczema|eczéma|psoria|rosacea|rosacée|\bacne\b|\bacné|dermatit|allerg|\brash|urticai"
     r"|\bcure|\bheal|guéri|soigne",
     re.IGNORECASE,
-)
-TUTORIALS_NOTE = (
-    "The routine is in the basket and no tutorials are on screen yet: call show_tutorials now "
-    "with the ids of the products in the basket, then say in one sentence that tutorials from "
-    "the brands and from creators are on screen, with a code to scan to watch them on their "
-    "phone, and ask one short question about the visitor's hair."
 )
 # A reply that announces a search or an action ("let me find", "one moment") instead of taking it.
 PROMISE = re.compile(
@@ -67,10 +73,19 @@ RECAP_NOTE = (
     "The recap and the in-store offer are on screen, from the address the visitor typed. Do not "
     "offer them again; close with a short thank you unless the visitor asks for something else."
 )
+# Thomas, 2026-10-06: the questions felt abrupt. A few words first show the answer was heard
+# ("So, something lighter."), which also says back a texture inferred from the current product.
 ASK_NOTE = (
-    "Diagnosis: reply with one short question about {topic}, picking up what the visitor just "
-    "said. Name and recommend no product: the search runs once the diagnosis is complete."
+    "Diagnosis: open with a few words that pick up what the visitor just said, naming no brand, "
+    "then ask one short question about {topic}. Name and recommend no product: the search runs "
+    "once the diagnosis is complete."
 )
+# Said back before the next question when the current cream's fault gives the texture.
+SAY_BACK: dict[TexturePreference, dict[Language, str]] = {
+    TexturePreference.LIGHT: {"en": "So, something lighter. ", "fr": "Donc, plus léger. "},
+    TexturePreference.RICH: {"en": "So, something richer. ", "fr": "Donc, plus riche. "},
+}
+SAY_BACK_NOTE = 'Their current cream tells you the texture they want: open with "{phrase}".'
 ASK_AGAIN_NOTE = (
     "Diagnosis: the visitor asked something instead of answering. Answer in one sentence, then "
     "ask again about {topic}. Name and recommend no product: the search runs once the diagnosis "
@@ -108,6 +123,12 @@ FIXED_QUESTIONS: dict[Topic, dict[Language, str]] = {
         "fr": "Votre peau rougit-elle, picote-t-elle ou réagit-elle quand vous appliquez une "
         "crème ?",
     },
+    Topic.CONCERN: {
+        "en": "Is there anything you'd most like to improve for your skin, such as hydration, "
+        "blemishes or the first signs of ageing?",
+        "fr": "Y a-t-il quelque chose que vous aimeriez surtout améliorer pour votre peau, comme "
+        "l'hydratation, les imperfections ou les premiers signes de l'âge ?",
+    },
     Topic.CURRENT_PRODUCT: {
         "en": "Which moisturiser do you use at the moment, and how do you find it?",
         "fr": "Quelle crème hydratante utilisez-vous en ce moment, et qu'en pensez-vous ?",
@@ -140,9 +161,9 @@ DIAGNOSED_NOTE = (
 # The hair bridge, one note per step: a question, a search, a suggestion, then the answer.
 HAIR_NOTES: dict[HairStep, str] = {
     HairStep.ASK: (
-        "The skin routine is complete and its tutorials are on screen. After your sentence about "
-        "the tutorials, ask one short question about the visitor's hair: how it feels, or its "
-        "type. Name no hair product yet, and do not ask about saving the profile yet."
+        "The skin routine is complete. End your reply with one short question about the "
+        "visitor's hair: how it feels, or its type. Name no hair product yet, and do not ask "
+        "about saving the profile yet."
     ),
     HairStep.SEARCH: (
         "The visitor answered your question about their hair. If they describe it, call "
@@ -175,6 +196,9 @@ HAIR_PICK_NOTE = (
 
 def _tool_choice(session: Session) -> ToolChoice:
     if SEARCHED in session.flags:
+        routine = routine_choice(session)
+        if routine is not None:
+            return routine
         if hair_step(session) is HairStep.ASK:
             return "none"  # the bridge opens with a question, never with a product
         if hair_search_due(session, _latest_visitor_text(session)):
@@ -193,10 +217,13 @@ def _search_due(session: Session) -> bool:
 
 def _vet_reply(session: Session, text: str) -> str:
     """The diagnosis gets clean questions (a reply that is not one short clean question on its
-    topic becomes the topic's fixed question), the turn the hair bridge opens ends on the hair
-    question, and a search turn presents the screen's top pick."""
+    topic becomes the topic's fixed question), the routine's suggestion names its product, the
+    turn the hair bridge opens ends on the hair question, and a search turn presents the screen's
+    top pick."""
     if hair_step(session) is HairStep.ASK:
-        return with_hair_question(session, text)
+        return with_hair_question(session, vet_shown(session, text))
+    if routine_step(session) is RoutineStep.OFFER:
+        return vet_offer(session, text)
     if SEARCHED in session.flags:
         return _vet_pick(session, text)
     if _search_due(session):
@@ -214,7 +241,14 @@ def _vet_reply(session: Session, text: str) -> str:
         return text
     logger.warning("diagnosis_reply_replaced", session_id=session.id, topic=topic, reply=text)
     intro = INTRO[session.language] if session.turn_index == session.active_since_turn else ""
-    return intro + FIXED_QUESTIONS[topic][session.language]
+    return intro + _say_back(session) + FIXED_QUESTIONS[topic][session.language]
+
+
+def _say_back(session: Session) -> str:
+    """The texture said back ("So, something lighter. ") when the visitor's latest line finds
+    their cream too heavy, or too light."""
+    implied = implied_texture(_latest_visitor_text(session))
+    return SAY_BACK[implied][session.language] if implied else ""
 
 
 def _vet_pick(session: Session, text: str) -> str:
@@ -224,53 +258,25 @@ def _vet_pick(session: Session, text: str) -> str:
     views: list[dict[str, Any]] = session.flags.get("last_results") or []
     if session.flags.get(SEARCHED) != session.turn_index or not views:
         return text
-    if _first_named(text, views) == views[0]["id"]:
+    if first_named(text, views) == views[0]["id"]:
         return text
     logger.warning("top_pick_reply_replaced", session_id=session.id, reply=text)
     return _presentation(views, session.language)
 
 
-def _first_named(text: str, views: list[dict[str, Any]]) -> str | None:
-    """The id of the result the text names first, by its full name or its first words."""
-    said = _plain(text)
-    found: list[tuple[int, int, str]] = []  # (position, minus the length matched, id)
-    for view in views:
-        words = _plain(view["name"]).split()
-        others = [_plain(other["name"]) for other in views if other is not view]
-        size = 2
-        while size < len(words) and any(o.startswith(" ".join(words[:size])) for o in others):
-            size += 1
-        for form in {" ".join(words), " ".join(words[:size])}:
-            at = said.find(form)
-            if at >= 0:
-                found.append((at, -len(form), view["id"]))
-    return min(found)[2] if found else None
-
-
-def _plain(text: str) -> str:
-    """Lower case, straight apostrophes, hyphens as spaces, single spaces."""
-    text = text.lower().replace("’", "'").replace("-", " ")
-    return " ".join(text.split())
-
-
 def _presentation(views: list[dict[str, Any]], language: Language) -> str:
     """The top pick by its full name, its fit to the visitor, an approved claim word for word."""
     pick = views[0]
-    parts = [PRESENT[language].format(name=f"{pick['brand']} {pick['name']}")]
+    parts = [PRESENT[language].format(name=full_name(pick))]
     if pick.get("fit"):
-        parts.append(_sentence(pick["fit"]))
+        parts.append(sentence(pick["fit"]))
     if pick["claims"]:
-        parts.append(_sentence(pick["claims"][0]["text"]))
+        parts.append(sentence(pick["claims"][0]["text"]))
     alternatives = len(views) - 1
     if alternatives:
         parts.append(ALTERNATIVES[language][min(alternatives, 2)])
     parts.append(ASK_OPINION[language])
     return " ".join(parts)
-
-
-def _sentence(text: str) -> str:
-    text = text.strip()
-    return text if text.endswith((".", "!", "?")) else f"{text}."
 
 
 def _diagnosis_notes(session: Session) -> list[str]:
@@ -281,11 +287,17 @@ def _diagnosis_notes(session: Session) -> list[str]:
         return [DIAGNOSED_NOTE]
     diagnosis = diagnosis_for(session)
     topic = QUESTIONS[diagnosis.asking] if diagnosis.asking else ""
-    return [(ASK_AGAIN_NOTE if diagnosis.asked_again else ASK_NOTE).format(topic=topic)]
+    notes = [(ASK_AGAIN_NOTE if diagnosis.asked_again else ASK_NOTE).format(topic=topic)]
+    if phrase := _say_back(session).strip():
+        notes.append(SAY_BACK_NOTE.format(phrase=phrase))
+    return notes
 
 
 def _context_block(session: Session) -> str:
-    profile = session.profile.model_dump(mode="json", exclude_none=True, exclude_defaults=True)
+    # What the code read from the basket stays out: only a budget the visitor stated filters.
+    profile = stated(session.profile).model_dump(
+        mode="json", exclude_none=True, exclude_defaults=True
+    )
     shown_ids = session.flags.get("shown_ids", [])
     return "\n".join(
         [
@@ -295,7 +307,7 @@ def _context_block(session: Session) -> str:
             f"Basket: {json.dumps(session.basket.view(), ensure_ascii=False)}",
             f"Products already shown: {', '.join(shown_ids) or 'none'}",
             *_diagnosis_notes(session),
-            *([TUTORIALS_NOTE] if _tutorials_due(session) else []),
+            *routine_notes(session),
             *_hair_notes(session),
             *([MEDICAL_NOTE] if MEDICAL.search(_latest_visitor_text(session)) else []),
             *([EMAIL_NOTE] if _email_said(session) else []),
@@ -313,11 +325,6 @@ def _hair_notes(session: Session) -> list[str]:
     if pick is not None:
         return [HAIR_PICK_NOTE.format(name=pick[0], claim=pick[1])]
     return [HAIR_NOTES[step]]
-
-
-def _tutorials_due(session: Session) -> bool:
-    """A routine (two products or more) is in the basket and its tutorials were never shown."""
-    return len(session.basket.items) >= 2 and not session.flags.get("shown_tutorials")
 
 
 def _email_said(session: Session) -> bool:

@@ -16,6 +16,7 @@ from app.catalogue.models import Product
 from app.catalogue.store import Catalogue
 from app.conversation.session import Session
 from app.lang import Language
+from app.profile.inferred import stated
 from app.profile.models import BeautyProfile
 from app.recap.coupon import Coupon, make_coupon
 from app.recap.words import platform_name, preference_words, skin_words, step_label
@@ -56,7 +57,7 @@ class RecapFacts(BaseModel):
 
 
 def build_facts(session: Session, catalogue: Catalogue, today: date | None = None) -> RecapFacts:
-    language, profile = session.language, session.profile
+    language, profile = session.language, stated(session.profile)
     products = [catalogue.get(item.product_id) for item in session.basket.items]
     return RecapFacts(
         first_name=(profile.first_name or "").strip() or None,

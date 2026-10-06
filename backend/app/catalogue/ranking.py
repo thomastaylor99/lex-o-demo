@@ -68,7 +68,7 @@ def search(
     budget = query.max_price_eur
     hits.sort(
         key=lambda p: (
-            -_score(p, query),
+            -score(p, query),
             abs(p.price_eur - budget) if budget is not None else Decimal(0),
             p.id,
         )
@@ -86,11 +86,12 @@ def _passes(p: Product, q: SearchQuery, *, use_price: bool) -> bool:
     return not (use_price and q.max_price_eur is not None and p.price_eur > q.max_price_eur)
 
 
-def _score(p: Product, q: SearchQuery) -> int:
-    score = 3 if q.skin_type is not None and q.skin_type in p.skin_types else 0
-    score += 2 * sum(1 for c in q.concerns if c in p.concerns)
+def score(p: Product, q: SearchQuery) -> int:
+    """Points for fit to the visitor: skin type 3, each concern named 2, texture 1, age range 1."""
+    points = 3 if q.skin_type is not None and q.skin_type in p.skin_types else 0
+    points += 2 * sum(1 for c in q.concerns if c in p.concerns)
     if q.texture_preference is not None and p.texture in TEXTURES[q.texture_preference]:
-        score += 1
+        points += 1
     if q.age_range in AGE_CONCERNS and AGE_CONCERNS[q.age_range] in p.concerns:
-        score += 1
-    return score
+        points += 1
+    return points

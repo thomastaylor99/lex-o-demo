@@ -132,10 +132,51 @@ async def test_show_tutorials_with_nothing_to_show_tells_the_model_and_emits_not
     assert "shown_tutorials" not in session.flags
 
 
+def _chose_the_cream(turn: int, **flags: object) -> Session:
+    """A session where the visitor put the cream in the basket at `turn`."""
+    session = Session(id="s1", active_agent="skincare", turn_index=turn)
+    session.flags.update({"skin_choice": {"id": "fx-rich-dry", "turn": turn}, **flags})
+    session.basket.add(CATALOGUE.get("fx-rich-dry"), "en")
+    return session
+
+
+async def test_show_tutorials_waits_for_the_routine_to_be_suggested():
+    """Thomas's run of 2026-10-06: before any routine was suggested, the tutorials showed for the
+    cream alone."""
+    tool = tutorials_tool(CATALOGUE, BANK)
+    session = _chose_the_cream(4)
+    session.turn_index = 5
+
+    early = await tool.handler(session, tool.args_model(product_ids=["fx-rich-dry"]))
+
+    assert (json.loads(early.content)["count"], early.ui_events) == (0, [])
+    assert "tutorials_turn" not in session.flags
+
+
+async def test_show_tutorials_after_the_visitor_declined_the_routine_shows_the_cream_alone():
+    tool = tutorials_tool(CATALOGUE, BANK)
+    cleanser = {"id": "fx-cleanser", "name": "Fixture Cleanser"}
+    session = _chose_the_cream(4, routine_turn=4, routine_pick=cleanser)
+    session.turn_index = 5  # the visitor said no thanks
+
+    shown = await tool.handler(session, tool.args_model(product_ids=["fx-rich-dry"]))
+
+    assert shown.ui_events and session.flags["tutorials_turn"] == 5
+
+
+async def test_show_tutorials_with_nothing_to_show_still_closes_the_routine():
+    tool = tutorials_tool(CATALOGUE, BANK)
+    session = Session(id="s1", active_agent="skincare", language="en", turn_index=6)
+
+    await tool.handler(session, tool.args_model(product_ids=["fx-gel-oily"]))
+
+    assert session.flags["tutorials_turn"] == 6  # the hair bridge opens all the same
+
+
 async def test_show_tutorials_waits_for_the_answer_about_the_routine_just_proposed():
     tool = tutorials_tool(CATALOGUE, BANK)
-    session = Session(id="s1", active_agent="skincare", turn_index=5, flags={"routine_turn": 5})
-    session.basket.add(CATALOGUE.get("fx-rich-dry"), "en")
+    cleanser = {"id": "fx-cleanser", "name": "Fixture Cleanser"}
+    session = _chose_the_cream(5, routine_turn=5, routine_pick=cleanser)
     args = tool.args_model(product_ids=["fx-rich-dry", "fx-cleanser"])
 
     early = await tool.handler(session, args)

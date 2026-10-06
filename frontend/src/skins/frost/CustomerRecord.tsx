@@ -17,10 +17,13 @@ interface Field {
 
 /**
  * The twelve record fields in the order a beauty adviser would read them, the product feedback
- * last (for the brands' marketing teams). The email arrives masked.
+ * last (for the brands' marketing teams). The email arrives masked. The budget and routine size
+ * the visitor never stated are read from their choices, and say so.
  */
 function fields(p: BeautyProfile | null, language: Language, l: Labels): Field[] {
   const word = (key: string | null | undefined) => profileWord(key, language);
+  const chosen = (name: string, value: string | null) =>
+    value && p?.inferred?.includes(name) ? `${value} (${l.fromChoices})` : value;
   const list = (keys: (string | null | undefined)[]) => keys.map(word).filter(Boolean).join(", ") || null;
   const feedback = (p?.product_feedback ?? []).map((item) => feedbackText(item, language)).filter(Boolean);
   const field = (id: string, label: string, captured: unknown, value: string | null): Field => ({
@@ -38,8 +41,8 @@ function fields(p: BeautyProfile | null, language: Language, l: Labels): Field[]
     field("concerns", l.rowConcerns, p?.concerns, list(p?.concerns ?? [])),
     field("sensitive", l.rowSensitivity, p?.sensitive, p?.sensitive == null ? null : p.sensitive ? word("sensitive") : l.notReactive),
     field("texture", l.rowTexture, p?.texture_preference, word(p?.texture_preference)),
-    field("budget", l.rowBudget, p?.budget_band, word(p?.budget_band)),
-    field("routine", l.rowRoutine, p?.routine_size, word(p?.routine_size)),
+    field("budget", l.rowBudget, p?.budget_band, chosen("budget_band", word(p?.budget_band))),
+    field("routine", l.rowRoutine, p?.routine_size, chosen("routine_size", word(p?.routine_size))),
     field("hair", l.rowHair, [p?.hair_type, p?.hair_concerns], list([p?.hair_type, ...(p?.hair_concerns ?? [])])),
     field("feedback", l.rowFeedback, p?.product_feedback, feedback.join("; ") || null),
   ];

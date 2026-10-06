@@ -4,7 +4,7 @@
 
 ## What v2 is
 
-A visitor talks to a L'Oréal beauty advisor in the browser. A concierge greets them and hands over to a skincare expert. The expert runs the same diagnosis every time (skin type, redness, the moisturiser they use now and how they find it, texture, age range, each skipped once answered), searches a catalogue of 13 real products, recommends one with two alternatives and one line on why each suits the visitor, completes the routine, asks about hair, shows tutorials from the brands and creators, saves the profile with consent, and prepares an email recap with an example in-store offer from the address typed on screen. Each reply is spoken in one take; products, basket, customer record, reply times and cost appear on screen as the conversation goes. Every model is Mistral's: Voxtral for speech in and out, Mistral Small for the agents.
+A visitor talks to a L'Oréal beauty advisor in the browser. A concierge greets them and hands over to a skincare expert. The expert runs the same diagnosis every time (the product sought when unnamed, skin type, redness, what they would most like to improve, the moisturiser they use now and how they find it, texture, age range, each skipped once answered), searches a catalogue of 13 real products, recommends one with two alternatives and one line on why each suits the visitor, completes the routine with one cleanser in code, shows the routine's tutorials from the brands and creators, asks about hair, saves the profile with consent, and prepares an email recap with an example in-store offer from the address typed on screen. Each reply is spoken in one take; products, basket, customer record, reply times and cost appear on screen as the conversation goes. Every model is Mistral's: Voxtral for speech in and out, Mistral Small for the agents.
 
 What matters on the day, in order: it works every time, it answers fast, and every claim it speaks traces back to the catalogue.
 
@@ -127,7 +127,7 @@ The loop knows nothing about beauty. Brands, products, profiles and the diagnosi
 | `conversation/mistral_stream.py` | Streaming with a first-token deadline, one retry, then the fallback model; reads token usage |
 | `conversation/session.py` | In-memory sessions (30 minutes): history, active agent, profile, basket, usage, flags |
 | `conversation/events.py` | The event models sent to the browser |
-| `agents/` | The concierge and skincare configurations, prompts, fixed lines, voices; `diagnosis.py` holds the five topics, their words in English and French, and the per-session state |
+| `agents/` | The concierge and skincare configurations, prompts, fixed lines, voices. The journey's steps in code: `diagnosis.py` (the seven topics, their words in English and French, the per-session state), `routine.py` (the product that completes the routine, the visitor's yes or no, the tutorials), `hair.py` (the hair bridge); `wording.py` holds what the reply checks share |
 | `tools/` | `transfer_to_agent`, `search_products`, `get_routine`, `add_to_basket`, `save_profile`, `show_tutorials` |
 | `recap/` | The recap from the typed address: facts, writer, check, template, coupon, email masking |
 | `catalogue/` | Product schema, store, ranking (the age range nudges it), fit sentences, and `data/products.json` |
@@ -142,7 +142,7 @@ The loop knows nothing about beauty. Brands, products, profiles and the diagnosi
 | Agent | Name on screen (EN, FR) | Role label | Voice | Tools | How it calls them |
 |---|---|---|---|---|---|
 | `concierge` | Beauty concierge, Concierge beauté | Welcome, Accueil | gb_oliver_cheerful | `transfer_to_agent` | Forced on every call: it never writes free text |
-| `skincare` | Skincare expert, Experte soin | Skincare, Soin | gb_jane_neutral | `search_products`, `get_routine`, `add_to_basket`, `save_profile`, `show_tutorials` | None during the diagnosis; `search_products` forced when it completes (or after 6 expert turns); then the model chooses |
+| `skincare` | Skincare expert, Experte soin | Skincare, Soin | gb_jane_neutral | `search_products`, `get_routine`, `add_to_basket`, `save_profile`, `show_tutorials` | None during the diagnosis; `search_products` forced when it completes (or after 8 expert turns); after the visitor's choice, the routine's steps in code (`get_routine` forced, then `add_to_basket` on a yes and `show_tutorials`), then the hair bridge's; otherwise the model chooses |
 
 The handover happens in code. The concierge's call is forced to `transfer_to_agent` with the specialist and a one-line summary of the need; the loop removes that call from the history, plays the concierge's fixed handover line, switches agent and runs the expert in the same turn. The browser leaves 1.2 s after the handover line before the expert speaks. When the need is still unclear, the tool plays the clarify line once instead. At Decathlon, handovers left to the model misfired on about 30% of first turns and cost 2 to 3 s.
 
@@ -151,7 +151,7 @@ The diagnosis runs in code, the same way every time (spec 002, Diagnosis):
 - Each diagnosis turn, the context block names the one topic, the call carries no tools, and the reply is checked before it is spoken (one question, on its topic, at most 60 words, no product, brand or tool name); otherwise the topic's fixed question replaces it, in the visitor's language.
 - The turn the last topic is answered, `search_products` is forced and the expert presents its top pick in that same turn.
 
-Each turn, the active agent gets its stable instructions first, then the history, then a short context block (reply language, the concierge's summary, the profile so far, the basket, the products already shown, and the notes that apply: diagnosis topic, medical referral, tutorials due, email typed on screen, recap shown) right before the visitor's latest message. Everything before the context block stays identical from turn to turn, so Mistral's prompt cache serves it.
+Each turn, the active agent gets its stable instructions first, then the history, then a short context block (reply language, the concierge's summary, the profile so far, the basket, the products already shown, and the notes that apply: diagnosis topic, the routine's step, the hair bridge's step, medical referral, email typed on screen, recap shown) right before the visitor's latest message. Everything before the context block stays identical from turn to turn, so Mistral's prompt cache serves it.
 
 ## Tools
 
@@ -159,7 +159,7 @@ Each turn, the active agent gets its stable instructions first, then the history
 |---|---|---|---|
 | `transfer_to_agent` | concierge | Hands over to `skincare` with a summary, or flags the need as unclear | `line.play`, `agent.switched` |
 | `search_products` | skincare | Filters and ranks the catalogue for the visitor (skin type, concerns, sensitivity, texture, budget, age range); up to three products, best match first, with their approved claims, usage notes and fit sentence in the session language | `products.shown` |
-| `get_routine` | skincare | The products that pair with one, by routine step | `products.shown` |
+| `get_routine` | skincare | The one product that completes the routine around the first skin choice (for a cream, the cleanser for the visitor's skin; `app/catalogue/pairing.py`) | `products.shown` |
 | `add_to_basket` | skincare | Adds products; returns the items and the total | `basket.updated` |
 | `save_profile` | skincare | Keeps the profile with consent (and the first name), or discards it | `profile.updated` |
 | `show_tutorials` | skincare | Up to four verified videos from the brands and creators for the basket's products | `tutorials.shown` |

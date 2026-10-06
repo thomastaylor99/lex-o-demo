@@ -217,7 +217,9 @@ def test_skincare_has_no_tools_while_the_diagnosis_is_open(turns):
 
 def test_skincare_policy_forces_search_once_the_diagnosis_is_complete():
     skincare = build_skincare(MODEL, _tools())
-    said = _said("I'm 42 and I use a rich cream for my dry skin, which gets red easily.")
+    said = _said(
+        "I'm 42 and I use a rich cream for my dry skin, which gets red easily and needs hydration."
+    )
     session = _session(active_since_turn=0, turn_index=0, history=said)
 
     assert skincare.tool_choice(session) == force("search_products")
@@ -237,20 +239,40 @@ def test_skincare_context_names_one_topic_at_a_time_in_order():
 
     session.history += _said("No, never.")
     session.turn_index = 3
+    assert "what they would most like to improve for their skin" in skincare.context_block(session)
+
+    session.history += _said("Nothing in particular.")
+    session.turn_index = 4
     assert "which moisturiser they use at the moment" in skincare.context_block(session)
 
     session.history += _said("Nothing special.")
-    session.turn_index = 4
+    session.turn_index = 5
     assert "whether they prefer a light or a rich texture" in skincare.context_block(session)
     assert skincare.tool_choice(session) == "none"
 
     session.history += _said("Light, please.")
-    session.turn_index = 5
+    session.turn_index = 6
     assert "their age range, saying it is optional" in skincare.context_block(session)
 
     session.history += _said("I'd rather not say.")
-    session.turn_index = 6
+    session.turn_index = 7
     assert skincare.tool_choice(session) == force("search_products")
+
+
+def test_the_question_after_too_thick_says_the_lighter_texture_back():
+    skincare = build_skincare(MODEL, _tools())
+    lines = ("Hi.", "A moisturiser.", "Normal.", "No.", "Radiance.", "I use one, it's too thick.")
+    session = _session(active_since_turn=1)
+    for turn, line in enumerate(lines):  # one line a turn, as the diagnosis hears them
+        session.turn_index = turn
+        session.history += _said(line)
+        block = skincare.context_block(session)
+
+    assert 'open with "So, something lighter."' in block
+    assert skincare.vet_reply(session, "And how old are you") == (
+        "So, something lighter. Last question, only if you're happy to share: roughly how old "
+        "are you? A decade is enough."
+    )
 
 
 def test_skincare_context_drops_the_diagnosis_once_a_search_ran():
@@ -261,16 +283,16 @@ def test_skincare_context_drops_the_diagnosis_once_a_search_ran():
     assert skincare.tool_choice(session) == "auto"
 
 
-def test_skincare_policy_forces_search_at_seven_expert_turns_without_a_search_yet():
+def test_skincare_policy_forces_search_at_eight_expert_turns_without_a_search_yet():
     skincare = build_skincare(MODEL, _tools())
-    session = _session(active_since_turn=0, turn_index=7)
+    session = _session(active_since_turn=0, turn_index=8)
 
     assert skincare.tool_choice(session) == force("search_products")
 
 
-def test_skincare_policy_keeps_forcing_search_past_seven_turns_until_one_runs():
+def test_skincare_policy_keeps_forcing_search_past_eight_turns_until_one_runs():
     skincare = build_skincare(MODEL, _tools())
-    session = _session(active_since_turn=2, turn_index=9)
+    session = _session(active_since_turn=2, turn_index=11)
 
     assert skincare.tool_choice(session) == force("search_products")
 
@@ -360,21 +382,6 @@ def test_build_agents_returns_both_ids_with_the_settings_model():
 
 def test_first_agent_is_concierge():
     assert FIRST_AGENT == "concierge"
-
-
-def test_skincare_context_asks_for_tutorials_once_the_routine_is_in_the_basket():
-    catalogue = Catalogue.load(CATALOGUE_PATH)
-    skincare = build_skincare(MODEL, _tools())
-    session = _session()
-    products = catalogue.all()[:2]
-    session.basket.add(products[0], "en")
-    assert "show_tutorials" not in skincare.context_block(session)
-
-    session.basket.add(products[1], "en")
-    assert "call show_tutorials now" in skincare.context_block(session)
-
-    session.flags["shown_tutorials"] = [{"id": "t1"}]
-    assert "show_tutorials" not in skincare.context_block(session)
 
 
 @pytest.mark.parametrize(

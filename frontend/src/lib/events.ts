@@ -87,6 +87,8 @@ export interface BeautyProfile {
   consent: Consent;
   /** Masked (c***@gmail.com); set once the visitor types it on screen (spec 006). */
   email?: string | null;
+  /** Fields read from the basket where the visitor stated nothing: budget_band, routine_size. */
+  inferred?: string[];
 }
 
 export interface ModelCallTiming {
