@@ -7,11 +7,11 @@ const QUIET = 0.003;
 const VOICE = 0.1;
 
 /** Feed one RMS per 64 ms frame and keep the events with the time they fired. */
-function run(gate: SpeechGate, levels: number[], from = 0): { at: number; event: GateEvent }[] {
+function run(gate: SpeechGate, levels: number[], from = 0, endMs?: number): { at: number; event: GateEvent }[] {
   const events: { at: number; event: GateEvent }[] = [];
   levels.forEach((rms, i) => {
     const at = from + i * FRAME_MS;
-    const event = gate.frame(at, rms);
+    const event = gate.frame(at, rms, endMs);
     if (event) events.push({ at, event });
   });
   return events;
@@ -76,6 +76,35 @@ test.describe("SpeechGate", () => {
 
     expect(events.map((e) => e.event)).toEqual(["start", "soft_end", "end"]);
     expect(events[0].at).toBe(49 * FRAME_MS);
+  });
+
+  test("a line that looks unfinished waits 1.8 s, so a 1.5 s pause stays inside it", () => {
+    const pause = [...frames(QUIET, 10), ...frames(VOICE, 10), ...frames(QUIET, 23), ...frames(VOICE, 10)];
+
+    const held = run(new SpeechGate(), [...pause, ...frames(QUIET, 30)], 0, 1_800);
+    expect(held.map((e) => e.event)).toEqual(["start", "soft_end", "resume", "soft_end", "end"]);
+    const lastVoice = (pause.length - 1) * FRAME_MS;
+    expect(held[4].at - lastVoice).toBeGreaterThan(1_800);
+    expect(held[4].at - lastVoice).toBeLessThan(1_800 + FRAME_MS);
+
+    // at 700 ms the same pause splits the line in two
+    const cut = run(new SpeechGate(), [...pause, ...frames(QUIET, 15)]);
+    expect(cut.map((e) => e.event)).toEqual(["start", "soft_end", "end", "start", "soft_end", "end"]);
+  });
+
+  test("silentFor tells, between frames, whether the silence after the socket ended is long enough", () => {
+    const gate = new SpeechGate();
+    run(gate, [...frames(QUIET, 10), ...frames(VOICE, 10)]);
+    const lastVoice = 19 * FRAME_MS;
+    expect(gate.silentFor(lastVoice + 720, 700)).toBe(false); // still speaking: no soft end yet
+
+    run(gate, frames(QUIET, 9), 20 * FRAME_MS); // soft end at 512 ms
+    expect(gate.silentFor(lastVoice + 690, 700)).toBe(false);
+    expect(gate.silentFor(lastVoice + 715, 700)).toBe(true);
+    expect(gate.silentFor(lastVoice + 715, 1_800)).toBe(false);
+
+    gate.reset();
+    expect(gate.silentFor(lastVoice + 2_000, 700)).toBe(false);
   });
 
   test("a visitor who talks on and on is not cut short by their own voice", () => {

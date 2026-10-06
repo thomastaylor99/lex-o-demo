@@ -7,6 +7,9 @@
  *
  * The mic opens at Begin, then the welcome line (about 6 s) plays while the engine ignores the
  * mic (half duplex), so 8 s of silence come first. 4 s of silence after let end of speech fire.
+ *
+ * `node tests/fixtures/make-visitor-audio.mjs pause` writes a shorter request with 1.5 s of silence
+ * after "for a", as a visitor looking for the word: the engine must keep it in one line (spec 001).
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -15,12 +18,19 @@ import { fileURLToPath } from "node:url";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const TEXT = "Hi, I'm looking for a moisturiser, my skin has been feeling really tight lately.";
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "audio", "visitor-moisturiser-en.wav");
+const PAUSED = process.argv[2] === "pause";
+const PARTS = PAUSED ? ["I'm looking for a", "moisturiser, my skin feels really tight."] : [TEXT];
+const PAUSE_S = 1.5;
+const OUT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "audio",
+  PAUSED ? "visitor-pause-en.wav" : "visitor-moisturiser-en.wav",
+);
 /** /voice/speak answers with float32 little-endian PCM, 24 kHz mono. */
 const TTS_RATE = 24_000;
 const RATE = 16_000;
 const SILENCE_BEFORE_S = 8;
-const SILENCE_AFTER_S = 4;
+const SILENCE_AFTER_S = PAUSED ? 2.5 : 4; // the pause variant's last words end the line at 700 ms
 /** A close microphone's level, well above the engine's voice threshold. */
 const PEAK = 0.6;
 /** The engine's voice threshold (frame RMS), and the longest pause kept inside the sentence. */
@@ -88,28 +98,52 @@ function wav(speech, rate, before, after) {
   return file;
 }
 
-const response = await fetch(`${API}/voice/speak`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ agent: "concierge", language: "en", text: TEXT }),
-});
-if (!response.ok) throw new Error(`POST ${API}/voice/speak failed (${response.status}): ${await response.text()}`);
+/** Drops the quiet 16 ms blocks at both ends, so the silence between two parts is PAUSE_S. */
+function trim(speech, rate) {
+  const block = Math.round(rate * 0.016);
+  const loud = (at) => {
+    const chunk = speech.subarray(at, at + block);
+    return Math.sqrt(chunk.reduce((sum, sample) => sum + sample * sample, 0) / chunk.length) >= VOICE_RMS;
+  };
+  let start = 0;
+  while (start < speech.length && !loud(start)) start += block;
+  let end = speech.length;
+  while (end - block > start && !loud(end - block)) end -= block;
+  return speech.subarray(start, end);
+}
 
-const bytes = Buffer.from(await response.arrayBuffer());
-const tts = new Float32Array(Math.floor(bytes.length / 4)).map((_, i) => bytes.readFloatLE(i * 4));
-const resampled = resample(tts, TTS_RATE, RATE);
-const peak = resampled.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
-if (peak === 0) throw new Error("/voice/speak returned silence");
-const speech = tighten(
-  resampled.map((sample) => (sample * PEAK) / peak),
-  RATE,
-  MAX_PAUSE_S,
-);
+/** One part of the line, spoken by the backend's TTS, at 16 kHz, peaking at PEAK. */
+async function say(text) {
+  const response = await fetch(`${API}/voice/speak`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agent: "concierge", language: "en", text }),
+  });
+  if (!response.ok) throw new Error(`POST ${API}/voice/speak failed (${response.status}): ${await response.text()}`);
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const tts = new Float32Array(Math.floor(bytes.length / 4)).map((_, i) => bytes.readFloatLE(i * 4));
+  const resampled = resample(tts, TTS_RATE, RATE);
+  const peak = resampled.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
+  if (peak === 0) throw new Error("/voice/speak returned silence");
+  const speech = tighten(
+    resampled.map((sample) => (sample * PEAK) / peak),
+    RATE,
+    MAX_PAUSE_S,
+  );
+  return PAUSED ? trim(speech, RATE) : speech;
+}
+
+const parts = [];
+for (const text of PARTS) parts.push(await say(text));
+const gap = Math.round(PAUSE_S * RATE);
+const speech = new Float32Array(parts.reduce((total, part) => total + part.length, 0) + gap * (parts.length - 1));
+parts.reduce((offset, part) => (speech.set(part, offset), offset + part.length + gap), 0);
 
 mkdirSync(dirname(OUT), { recursive: true });
 const file = wav(speech, RATE, SILENCE_BEFORE_S, SILENCE_AFTER_S);
 writeFileSync(OUT, file);
 console.log(
-  `wrote ${OUT}: ${(speech.length / RATE).toFixed(1)} s of speech (gain ${(PEAK / peak).toFixed(1)}), ` +
+  `wrote ${OUT}: ${(speech.length / RATE).toFixed(1)} s of speech, ` +
     `${((file.length - 44) / 2 / RATE).toFixed(1)} s in all, ${Math.round(file.length / 1024)} KB`,
 );

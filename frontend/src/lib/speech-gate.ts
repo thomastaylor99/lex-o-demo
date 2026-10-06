@@ -3,7 +3,8 @@
  *
  * Speech starts after two voiced frames. After 450 ms of silence the engine ends the
  * transcription socket, so the final text is ready when the turn opens at 700 ms; two voiced
- * frames in between resume the same line on a new socket. A frame is voiced when its RMS clears
+ * frames in between resume the same line on a new socket. The engine can wait longer than 700 ms
+ * when the words so far look unfinished (hesitation.ts). A frame is voiced when its RMS clears
  * the room's noise by a margin, never less than 0.012, so a noisy hall cannot hold the turn open.
  * The first half second only measures the room.
  */
@@ -63,8 +64,8 @@ export class SpeechGate {
     return this.lastVoicedAt;
   }
 
-  /** What this frame changes, if anything. */
-  frame(now: number, rms: number): GateEvent | null {
+  /** What this frame changes, if anything. `endMs` is the silence that ends the line. */
+  frame(now: number, rms: number, endMs = END_MS): GateEvent | null {
     this.noise.add(rms);
     if (!this.noise.ready()) return null;
     const voiced = rms > this.noise.threshold();
@@ -82,7 +83,7 @@ export class SpeechGate {
       return "resume";
     }
     if (this.state === "speaking" && voiced) this.lastVoicedAt = now;
-    if (now - this.lastVoicedAt > END_MS || now - this.startedAt > MAX_LINE_MS) {
+    if (now - this.lastVoicedAt > endMs || now - this.startedAt > MAX_LINE_MS) {
       this.reset();
       return "end";
     }
@@ -91,6 +92,14 @@ export class SpeechGate {
       return "soft_end";
     }
     return null;
+  }
+
+  /**
+   * Whether the silence since the socket ended has lasted `endMs`. The final text usually comes
+   * just after 700 ms, between two frames, so the engine asks then rather than wait for a frame.
+   */
+  silentFor(now: number, endMs: number): boolean {
+    return this.state === "ending" && now - this.lastVoicedAt > endMs;
   }
 
   /** Back to waiting for speech; the noise measured so far is kept. */
