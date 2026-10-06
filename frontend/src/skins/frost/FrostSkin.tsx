@@ -11,8 +11,9 @@ import { Welcome } from "./Welcome";
 
 /**
  * The first skin: Frost's white screen, black pills and yellow voice, with Lumen's agent labels and
- * relay. The welcome screen shows until the session is live, and again after Restart; a start that
- * failed before anything was said stays there with Try again.
+ * relay. The welcome screen shows until the session is live, and again after Restart; after Stop the
+ * ended conversation stays on screen. A start that failed before anything was said stays on the
+ * welcome screen with Try again.
  */
 export function FrostSkin({ agent }: SkinProps) {
   const { status } = agent;

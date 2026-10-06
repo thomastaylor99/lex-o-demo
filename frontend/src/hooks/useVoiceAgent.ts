@@ -14,6 +14,7 @@ export function useVoiceAgent(): VoiceAgent {
   const actions = useMemo(
     () => ({
       start: () => engine.start(),
+      stop: () => engine.stop(),
       end: () => engine.end(),
       setMode: (mode: VoiceAgent["mode"]) => engine.setMode(mode),
       pttDown: () => engine.pttDown(),

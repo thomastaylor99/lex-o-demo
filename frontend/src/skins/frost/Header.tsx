@@ -64,32 +64,41 @@ function CameraToggle({ label, on, onToggle }: { label: string; on: boolean; onT
   );
 }
 
-/** The title on the left; Restart and the camera switch on the right. The stats sit in the right quarter. */
+/** The header's pill buttons: Stop in black, Restart in white with an outline. */
+const PILL = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  borderRadius: 999,
+  padding: "9px 16px",
+  fontSize: fs(16),
+  fontWeight: 600,
+  cursor: "pointer",
+} as const;
+
+/**
+ * The title on the left; Stop (while the conversation runs), Restart and the camera switch on the
+ * right. The stats sit in the right quarter.
+ */
 export function Header({ agent }: SkinProps) {
-  const { language, restart, camera, cameraSwitch, toggleCamera } = agent;
+  const { language, status, stop, restart, camera, cameraSwitch, toggleCamera } = agent;
   const l = labels(language);
 
   return (
     <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "22px 0 14px" }}>
       <Wordmark advisor={l.advisor} />
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {status === "live" && (
+          <button type="button" onClick={() => void stop()} className="fr-press" style={{ ...PILL, background: INK, color: "#fff" }}>
+            <span aria-hidden style={{ width: 11, height: 11, borderRadius: 3, background: YELLOW }} />
+            {l.stop}
+          </button>
+        )}
         <button
           type="button"
           onClick={restart}
           className="fr-press"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            borderRadius: 999,
-            padding: "9px 16px",
-            background: "#fff",
-            boxShadow: `inset 0 0 0 1px ${TRACK}`,
-            color: INK,
-            fontSize: fs(16),
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          style={{ ...PILL, background: "#fff", boxShadow: `inset 0 0 0 1px ${TRACK}`, color: INK }}
         >
           <ReplayIcon size={15} />
           {l.restart}

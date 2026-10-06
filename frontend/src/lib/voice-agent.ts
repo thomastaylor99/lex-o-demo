@@ -66,12 +66,16 @@ export interface AgentIdentity {
 export type EmailResult = { ok: true } | { ok: false; error: "invalid_email" | "consent_needed" | "failed" };
 
 export interface VoiceAgent {
-  status: "idle" | "starting" | "live" | "error";
+  /** "ended": Stop ended the conversation and the screen keeps it until `end()` (Restart). */
+  status: "idle" | "starting" | "live" | "ended" | "error";
   activity: AgentActivity;
   mode: MicMode;
   setMode(mode: MicMode): void;
   /** Creates the session, prefetches the fixed lines and plays the welcome. */
   start(): Promise<void>;
+  /** Ends the conversation at once, as `end()` does, and keeps everything on screen. */
+  stop(): Promise<void>;
+  /** Ends the session and clears the screen: the status returns to idle. */
   end(): Promise<void>;
   pttDown(): void;
   pttUp(): void;
@@ -95,6 +99,11 @@ export interface VoiceAgent {
 }
 
 export const EMPTY_REPLY_STATS: ReplyStats = { count: 0, averageMs: null, p90Ms: null, minMs: null, maxMs: null };
+
+/** The transcript as it stands, every line final: what stays on screen once Stop has ended the conversation. */
+export function settled(transcript: TranscriptEntry[]): TranscriptEntry[] {
+  return transcript.map((entry) => (entry.final ? entry : { ...entry, final: true }));
+}
 
 /** Average, 90th percentile and range of reply times. */
 export function replyStats(samples: number[]): ReplyStats {

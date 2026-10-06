@@ -1,6 +1,6 @@
 # 003 Journey and UI (V1 screen)
 
-> Status: approved 2026-10-04 (decisions by Thomas), revised the same evening after his first live run, after two rounds of templates, and for the first skin (Frost with Lumen's agent labels); revised 2026-10-05 when the voice moved into the conversation. Owner: Thomas. Last updated: 2026-10-05.
+> Status: approved 2026-10-04 (decisions by Thomas), revised the same evening after his first live run, after two rounds of templates, and for the first skin (Frost with Lumen's agent labels); revised 2026-10-05 when the voice moved into the conversation, and 2026-10-06 for Stop. Owner: Thomas. Last updated: 2026-10-06.
 
 ## Goal
 
@@ -15,6 +15,7 @@ The conversation Thomas tested in the terminal, in the browser, on a screen wort
 | Text size | 80% of the Frost template's sizes, never below 13 px: `fs()` in `src/skins/frost/theme.ts` sets every font size |
 | Welcome screen | Shown first and again after Restart. Browsers allow the microphone and audio only after a click, so Begin starts the session. Its look, Eclipse, was chosen on 2026-10-05 from the mockups under `/welcome` |
 | Restart | A pill in the header ends the session and returns to the welcome screen for the next visitor |
+| Stop | A black pill in the header, left of Restart, while the conversation runs (2026-10-06). It ends the conversation at once and keeps everything on screen; the talk bar says the conversation has ended, and Restart then returns to the welcome screen |
 | Customer record | The right panel shows the record L'Oréal would store: each field once captured, and the consent. It shows leadership the zero-party data the conversation collects |
 | Agents on screen | By role ("Skincare expert") with a voice visual that moves with the voice; no personas or portraits |
 | Voice on screen | Inline (2026-10-05): the voice shows on the lines of the conversation, in one place with one state. The header and the talk bar carry no state text |
@@ -27,9 +28,10 @@ The conversation Thomas tested in the terminal, in the browser, on a screen wort
 ## Screen
 
 - **Welcome:** Eclipse (`src/welcome/eclipse/`), a warm black screen with faint points of light. L'Oréal's logo top left (the group logo, `src/welcome/LorealLogo.tsx`). Centred, a golden halo that breathes like a voice holds the headline, revealed word by word ("Your beauty, / in your words.", the second line in gold italics, Cormorant Garamond), one line of text and the gold Begin pill. Under the halo, the note that the voice is not recorded; at the bottom, "Built with Mistral AI for the L'Oréal Learning Expedition". While the session starts, the pill reads "Connecting" and the halo shimmers faster. A failed start shows a short message above the pill (the microphone, or a generic one) and Try again.
-- **Header:** "Beauty advisor" as the title, top left, after a voice badge (a black disc holding five yellow voice bars), chosen from five options under `/templates/titles`; L'Oréal's logo stays on the welcome screen. On the right, the Restart pill, outlined, and the camera switch when the page has `?camera=1`.
-- **Left, conversation (three quarters):** the transcript carries the voice. Each agent line sits under the agent's name with a small yellow dot (hidden on continued lines). While a line is spoken, a small yellow waveform on a black pill and the state ("Thinking", "Speaking") follow the name, then fade when the voice moves on. While the agent's next line is on its way, its label waits at the bottom with a thinking wave and the text rises in under it. While the microphone is open and nothing is heard yet, a "Listening" bubble with a grey swell waits on the right; the visitor's words replace it, appear live and settle when final. The handover is a white pill in the conversation: the previous agent's mark tucked behind the new one's, a yellow ring, "Skincare expert joined". It appears when the previous agent's handover line has played; the new agent's label then waits with a thinking wave, and it speaks 1.2 s later, its words appearing with its voice (`HANDOVER_PAUSE_S` in `src/lib/voice-engine.ts`). Product carousels sit where the expert recommends (top pick marked, routine step on routine groups), tutorials and the recap where they were shown (spec 006); then the camera panel when open, and the talk control at the bottom (the mode switch, and in hold-to-talk the hint and the hold button), with no state text of its own. The rule that picks the live line is `src/skins/frost/live.ts`.
+- **Header:** "Beauty advisor" as the title, top left, after a voice badge (a black disc holding five yellow voice bars), chosen from five options under `/templates/titles`; L'Oréal's logo stays on the welcome screen. On the right, while the conversation runs, the Stop pill (black, with a small yellow square); then the Restart pill, outlined, and the camera switch when the page has `?camera=1`.
+- **Left, conversation (three quarters):** the transcript carries the voice. Each agent line sits under the agent's name with a small yellow dot (hidden on continued lines). While a line is spoken, a small yellow waveform on a black pill and the state ("Thinking", "Speaking") follow the name, then fade when the voice moves on. While the agent's next line is on its way, its label waits at the bottom with a thinking wave and the text rises in under it. While the microphone is open and nothing is heard yet, a "Listening" bubble with a grey swell waits on the right; the visitor's words replace it, appear live and settle when final. The handover is a white pill in the conversation: the previous agent's mark tucked behind the new one's, a yellow ring, "Skincare expert joined". It appears when the previous agent's handover line has played; the new agent's label then waits with a thinking wave, and it speaks 1.2 s later, its words appearing with its voice (`HANDOVER_PAUSE_S` in `src/lib/voice-engine.ts`). Product carousels sit where the expert recommends (top pick marked, routine step on routine groups), tutorials and the recap where they were shown (spec 006); then the camera panel when open, and the talk control at the bottom (the mode switch, and in hold-to-talk the hint and the hold button), with no state text of its own. Once Stop has ended the conversation, a grey pill takes the talk control's place: a black square on a white disc and "The conversation has ended" ("La conversation est terminée"), with no microphone (`src/skins/frost/EndedBar.tsx`). The rule that picks the live line is `src/skins/frost/live.ts`.
 - **Right quarter:** the basket (packshot thumbnails, item count, prices, the total in a black pill), then the customer record: a counter ("6 of 12"), twelve rows (first name, email, language, age range, skin type, concerns, sensitivity, texture, budget, routine size, hair, product feedback such as "L'Oréal Paris day cream: too light (disliked)") that flash yellow as they fill, and the consent line ("Consent asked before saving", then "Saved with your consent" or "Not saved"); at the foot and always in view, "This conversation": light grey bubbles for its duration, the average reply and p90 (from the first reply on) and the running cost.
+- **Stop and the ended state:** Stop ends the conversation at once: the voice stops mid-word, the microphone and the transcription sockets close, pending requests are aborted and the backend session ends (`DELETE /sessions/{id}`, as Restart does). Everything on screen stays as it stood, lines cut short included: the transcript, the carousels, tutorials and recap, the basket, the customer record and the stats, whose duration stops counting. The status becomes "ended": the voice leaves the lines, the email field closes, and the talk bar says the conversation has ended. Restart then returns to the welcome screen. The live engine (`stop()` in `src/lib/voice-engine.ts`) and the scripted demo (`/?mock=1`) behave the same.
 - **Errors:** a problem during the conversation shows a short message in the conversation language for about six seconds; the technical detail stays in a tooltip.
 - **Language:** every interface label follows the conversation language (English, French), from `src/components/i18n.ts`.
 - **Product images:** `/products/<product id>.png` in `frontend/public/`, on a light well, with the brand's initial if the image is missing.
@@ -50,7 +52,7 @@ export interface ScreenAgent extends VoiceAgent {
 export interface SkinProps { agent: ScreenAgent }
 ```
 
-- `src/hooks/useScreenAgent.ts` turns a `VoiceAgent` into a `ScreenAgent`. Restart calls `end()`, which returns the status to idle. `?camera=1` shows the camera switch and opens the panel; the switch then toggles it.
+- `src/hooks/useScreenAgent.ts` turns a `VoiceAgent` into a `ScreenAgent`. Restart calls `end()`, which returns the status to idle; Stop calls the agent's `stop()`. `?camera=1` shows the camera switch and opens the panel; the switch then toggles it.
 - `src/components/app/Screen.tsx` renders the skin at `/`: `LiveScreen` feeds it the voice engine (`useVoiceAgent`), `MockScreen` the scripted conversation (`useMockVoiceAgent`, with `?mock=1`). `?autostart=1` starts the session on mount.
 - The first skin lives in `src/skins/frost/` (`FrostSkin`). Every skin component takes `{ agent }: SkinProps`, so another template can become a skin without touching the engine.
 - The root layout loads Geist as `--font-frost`; `globals.css` holds Tailwind and a minimal reset.
@@ -83,11 +85,12 @@ export interface ReplyStats { count: number; averageMs: number | null; p90Ms: nu
 export interface AgentIdentity { id: string; displayName: string; roleLabel: string }
 
 export interface VoiceAgent {
-  status: "idle" | "starting" | "live" | "error";
+  status: "idle" | "starting" | "live" | "ended" | "error";   // "ended": after Stop, until Restart
   activity: AgentActivity;
   mode: MicMode;
   setMode(mode: MicMode): void;
   start(): Promise<void>;    // creates the session, prefetches lines, plays the welcome
+  stop(): Promise<void>;     // ends the session at once and keeps the screen: status "ended"
   end(): Promise<void>;      // ends the session and returns to idle
   pttDown(): void;
   pttUp(): void;
@@ -113,6 +116,6 @@ The haircare expert (002 extension), presenter keys and show control (005), the 
 
 ## Verification
 
-- Mock: `/?mock=1`, Begin, the scripted conversation plays in the Frost skin: the waveform moves from line to line with the speaker, the handover pill appears, and Restart returns to the welcome screen.
-- Live: Thomas runs the golden path in Chrome at 1920×1080. Hands-free and hold-to-talk both work, words appear as he speaks, voices play, cards, basket and customer record fill in, one sentence in French switches the labels to French, the cost rises and the average and p90 update after each turn, Restart then Begin starts a clean conversation, and the screen reads well from a few metres away.
+- Mock: `/?mock=1`, Begin, the scripted conversation plays in the Frost skin: the waveform moves from line to line with the speaker, the handover pill appears, and Restart returns to the welcome screen. Stop during the expert's first line freezes the screen and the duration, and the talk bar says the conversation has ended (`tests/e2e/stop.spec.ts`).
+- Live: Thomas runs the golden path in Chrome at 1920×1080. Hands-free and hold-to-talk both work, words appear as he speaks, voices play, cards, basket and customer record fill in, one sentence in French switches the labels to French, the cost rises and the average and p90 update after each turn, Restart then Begin starts a clean conversation, Stop during a reply silences the voice at once and turns the browser's microphone indicator off while the screen stays, and the screen reads well from a few metres away.
 - How to run the app: `README.md`.
