@@ -111,7 +111,7 @@ async def run_turn(
             )
             calls = acc.complete()
             text = "".join(parts)
-            if text and agent.vet_reply is not None:
+            if text and not calls and agent.vet_reply is not None:
                 text = agent.vet_reply(session, text)
             if text:
                 # The browser speaks the whole text in one request now, before any tool runs and

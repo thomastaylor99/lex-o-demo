@@ -74,13 +74,22 @@ def catalogue_tools(catalogue: Catalogue) -> tuple[Tool, Tool]:
         views = _views(outcome.products, search_profile(session.profile, query), session.language)
 
         session.flags["last_search_turn"] = session.turn_index
+        session.flags["last_results"] = views  # the expert's reply must present views[0] first
         shown_ids = session.flags.setdefault("shown_ids", [])
         for product in outcome.products:
             if product.id not in shown_ids:
                 shown_ids.append(product.id)
 
         best_match_id = outcome.products[0].id if outcome.products else None
-        content = json.dumps({"results": views, "relaxed": outcome.relaxed}, ensure_ascii=False)
+        # The screen marks the first result "Top pick": the model gets it by that name.
+        content = json.dumps(
+            {
+                "top_pick": views[0] if views else None,
+                "alternatives": views[1:],
+                "relaxed": outcome.relaxed,
+            },
+            ensure_ascii=False,
+        )
         return ToolResult(
             content=content,
             ui_events=[

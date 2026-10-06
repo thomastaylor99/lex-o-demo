@@ -162,14 +162,15 @@ async def test_search_products_dry_sensitive_rich_budget_30_returns_rich_cream_f
     result = await tool.handler(session, args)
     body = json.loads(result.content)
 
-    assert body["results"][0]["id"] == "fx-rich-dry"
+    assert body["top_pick"]["id"] == "fx-rich-dry"
     assert body["relaxed"] == []
     assert len(result.ui_events) == 1
     event = result.ui_events[0]
     assert event.type == "products.shown"
     assert event.payload["best_match_id"] == "fx-rich-dry"
-    assert event.payload["products"] == body["results"]
+    assert event.payload["products"] == [body["top_pick"], *body["alternatives"]]
     assert session.flags["last_search_turn"] == session.turn_index
+    assert session.flags["last_results"] == event.payload["products"]
     assert "fx-rich-dry" in session.flags["shown_ids"]
 
 
@@ -182,7 +183,7 @@ async def test_search_products_relaxes_price_and_reports_it():
     body = json.loads(result.content)
 
     assert body["relaxed"] == ["max_price_eur"]
-    assert len(body["results"]) > 0
+    assert body["top_pick"] is not None
 
 
 async def test_search_products_accumulates_shown_ids_without_duplicates():
@@ -206,7 +207,7 @@ async def test_search_products_with_no_results_has_no_best_match():
     result = await tool.handler(session, args)
     body = json.loads(result.content)
 
-    assert body["results"] == []
+    assert (body["top_pick"], body["alternatives"]) == (None, [])
     assert result.ui_events[0].payload["best_match_id"] is None
 
 

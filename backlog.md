@@ -60,7 +60,7 @@ Backend:
 - Move `judge_model` from `app/settings.py` into the golden tests' settings.
 
 Docs:
-- `specs/v1/architecture.md`: the 0.6 s "first sound" is measured in the backend; the visitor feels about 1.4 s on the first turn and 2 s later (the 0.7 s silence wait and the browser hops come on top).
+- `specs/v2/architecture.md`: the 0.6 s "first sound" is measured in the backend; the visitor feels about 1.4 s on the first turn and 2 s later (the 0.7 s silence wait and the browser hops come on top).
 - Spec 001: drop the debug page, add `tutorials.shown` and `recap.ready`, drop "transfer targets". Spec 002: seven tools, the recap is in scope, `filler_recap`, `texture_preference`. Spec 003: ten record rows, the `tutorials` and `recap` contract fields.
 - Delete `specs/v0/plan.md` and `tasks.md` (done; git keeps them) after updating the five places that point to them (`backend/app/agents/prompts.py`, `context/decisions.md`, `specs/README.md`, specs 001 and 002).
 - Update the status line in `AGENTS.md`.

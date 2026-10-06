@@ -1,11 +1,12 @@
 # Context index
 
-> Source: maintained by hand. Last updated 2026-10-04.
+> Source: maintained by hand. Last updated 2026-10-06.
 
 Read-only inputs for agents. Each file opens with a `> Source:` line naming where it comes from and when. To add an input: write it as markdown, add the source line, add a row below. Agents change these files only when Thomas asks.
 
 | File | Holds | Read it when |
 |---|---|---|
+| `handover.md` | The state at v2: versions, what changed since V1, how a conversation runs, risks for the dry run, open items, how to run and restart, how to work with Thomas, the repository's branches | Starting any session |
 | `brief.md` | Event, audience, demo slot, why voice, constraints, open questions | Starting or scoping any spec |
 | `glossary.md` | L'Oréal divisions and programmes, brand names that seed speech-to-text `context_bias`, demo vocabulary | Writing prompts, STT config or catalogue data |
 | `claims-policy.md` | Where product claims come from and how the agent may voice them | Touching prompts, tools, catalogue or tests |

@@ -131,7 +131,7 @@ async def test_search_and_routine_results_carry_the_fit():
 
     result = await tools["search_products"].handler(session, search_args)
 
-    best = json.loads(result.content)["results"][0]
+    best = json.loads(result.content)["top_pick"]
     assert best["id"] == "fx-rich-dry"
     assert best["fit"] == "For dry, sensitive skin: the rich texture you like, within your budget."
 

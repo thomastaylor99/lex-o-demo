@@ -8,6 +8,7 @@ the search is forced in that same turn.
 import json
 import re
 from collections.abc import Mapping
+from typing import Any
 
 import structlog
 
@@ -112,6 +113,16 @@ FIXED_QUESTIONS: dict[Topic, dict[Language, str]] = {
         "près ? Une décennie suffit.",
     },
 }
+# The top pick's presentation when the expert's own reply presents another product.
+PRESENT: dict[Language, str] = {
+    "en": "My top pick for you is {name}.",
+    "fr": "Mon premier choix pour vous : {name}.",
+}
+ALTERNATIVES: dict[Language, dict[int, str]] = {
+    "en": {1: "One alternative is on screen.", 2: "Two alternatives are on screen."},
+    "fr": {1: "Une autre option est à l'écran.", 2: "Deux autres options sont à l'écran."},
+}
+ASK_OPINION: dict[Language, str] = {"en": "What do you think?", "fr": "Qu'en pensez-vous ?"}
 DIAGNOSED_NOTE = (
     "Diagnosis complete: call search_products now with what the visitor told you, then present "
     "the top pick."
@@ -133,9 +144,10 @@ def _search_due(session: Session) -> bool:
 
 
 def _vet_reply(session: Session, text: str) -> str:
-    """During the diagnosis, a reply that is not one short clean question on its topic becomes the
-    topic's fixed question."""
-    if SEARCHED in session.flags or _search_due(session):
+    """The diagnosis gets clean questions, and a search turn presents the screen's top pick."""
+    if SEARCHED in session.flags:
+        return _vet_pick(session, text)
+    if _search_due(session):
         return text
     topic = diagnosis_for(session).asking
     if topic is None:
@@ -151,6 +163,62 @@ def _vet_reply(session: Session, text: str) -> str:
     logger.warning("diagnosis_reply_replaced", session_id=session.id, topic=topic, reply=text)
     intro = INTRO[session.language] if session.turn_index == session.active_since_turn else ""
     return intro + FIXED_QUESTIONS[topic][session.language]
+
+
+def _vet_pick(session: Session, text: str) -> str:
+    """In the turn of a search, the reply must name the screen's top pick before any other result;
+    otherwise the top pick's fixed presentation replaces it (Thomas's run, 2026-10-06: the expert
+    praised the second result while the screen marked the first "Top pick")."""
+    views: list[dict[str, Any]] = session.flags.get("last_results") or []
+    if session.flags.get(SEARCHED) != session.turn_index or not views:
+        return text
+    if _first_named(text, views) == views[0]["id"]:
+        return text
+    logger.warning("top_pick_reply_replaced", session_id=session.id, reply=text)
+    return _presentation(views, session.language)
+
+
+def _first_named(text: str, views: list[dict[str, Any]]) -> str | None:
+    """The id of the result the text names first, by its full name or its first words."""
+    said = _plain(text)
+    found: list[tuple[int, int, str]] = []  # (position, minus the length matched, id)
+    for view in views:
+        words = _plain(view["name"]).split()
+        others = [_plain(other["name"]) for other in views if other is not view]
+        size = 2
+        while size < len(words) and any(o.startswith(" ".join(words[:size])) for o in others):
+            size += 1
+        for form in {" ".join(words), " ".join(words[:size])}:
+            at = said.find(form)
+            if at >= 0:
+                found.append((at, -len(form), view["id"]))
+    return min(found)[2] if found else None
+
+
+def _plain(text: str) -> str:
+    """Lower case, straight apostrophes, hyphens as spaces, single spaces."""
+    text = text.lower().replace("’", "'").replace("-", " ")
+    return " ".join(text.split())
+
+
+def _presentation(views: list[dict[str, Any]], language: Language) -> str:
+    """The top pick by its full name, its fit to the visitor, an approved claim word for word."""
+    pick = views[0]
+    parts = [PRESENT[language].format(name=f"{pick['brand']} {pick['name']}")]
+    if pick.get("fit"):
+        parts.append(_sentence(pick["fit"]))
+    if pick["claims"]:
+        parts.append(_sentence(pick["claims"][0]["text"]))
+    alternatives = len(views) - 1
+    if alternatives:
+        parts.append(ALTERNATIVES[language][min(alternatives, 2)])
+    parts.append(ASK_OPINION[language])
+    return " ".join(parts)
+
+
+def _sentence(text: str) -> str:
+    text = text.strip()
+    return text if text.endswith((".", "!", "?")) else f"{text}."
 
 
 def _diagnosis_notes(session: Session) -> list[str]:

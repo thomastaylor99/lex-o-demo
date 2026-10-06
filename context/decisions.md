@@ -1,6 +1,6 @@
 # Decision log
 
-> Source: decisions Thomas took or approved while building the demo, checked against the files each entry points to. Started 2026-10-04, last updated 2026-10-05.
+> Source: decisions Thomas took or approved while building the demo, checked against the files each entry points to. Started 2026-10-04, last updated 2026-10-06.
 
 Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/spec.md`, and so on.
 
@@ -26,6 +26,7 @@ Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/s
 - 2026-10-05: The skincare diagnosis runs in code, the same way every time: skin type, then redness, then texture, each topic skipped once the visitor's words or the profile answer it, and the products only after the last answer (Thomas). In Thomas's live run the expert recommended a cream straight after the handover, and in 10 replays of the first turn it searched at once in 1 and opened with four different questions. While a topic is open the expert has no tools and the context names the topic; when the diagnosis is complete the search is forced in that same turn. Keyword lists decide what the visitor answered, which adds no model call and no delay (spec 002, Diagnosis; `backend/app/agents/diagnosis.py`). After the change: 0 searches in 10 replays, and the same first question each time.
 - 2026-10-05: The diagnosis also asks which moisturiser the visitor uses and how they find it, and their age range as optional (Thomas). The feedback is data for the brands' marketing teams: the record keeps any brand named, other companies' included, and the expert never discusses those aloud. The age range is in decades and ranks ageing care higher from 30; gender is neither asked nor inferred, since the catalogue is unisex and a guess from a voice can go wrong on stage. Cross-sell stays the routine and hair before the event: a new category needs real products with approved claims, and makeup needs real shades (spec 002, Diagnosis and Beauty profile).
 - 2026-10-05: Diagnosis turns carry no tools, and their replies are checked before they are spoken; one that names a product, a brand or a tool, asks nothing or strays from its topic is replaced by the topic's fixed question. With five topics, the model judged the diagnosis complete early and, its tools shown but blocked, wrote the search out as text and made up a top pick in 3 of 7 live conversations. After both changes: 21 of 21 (spec 002, Diagnosis; `AgentConfig.vet_reply`).
+- 2026-10-06: The product the expert presents first is the one the screen marks "Top pick". In Thomas's run the search ranked the CeraVe lotion first (a tie broken by product id) and the expert praised the Revitalift Filler, the second result. The search result now names its `top_pick`, which alone brought 4 of 4 replays in line; as a safety net, a reply in the search's turn that presents another product first, or none by name, is replaced by the top pick's fixed presentation (spec 002, Journey step 4; `_vet_pick` in `backend/app/agents/skincare.py`).
 
 ## Models and latency
 
@@ -90,14 +91,14 @@ Each entry: date, choice, reason, pointer. "Spec 001" is `specs/001-voice-core/s
 ## Git
 
 - 2026-10-04: Thomas makes the commits, locally; a hook blocks the agent's git writes. Push to a private GitHub repo once V1 runs live (`context/build-lessons.md`).
+- 2026-10-05: The repo is `lex-o-demo`, private on GitHub; V1 pushed as `50b09fe`. Parallel streams run on branches in worktrees under `.claude/worktrees/` and merge through `integrate/v1-2`.
+- 2026-10-06: v2, the demo-ready version, committed as `0888b10` with the fixes still open listed in `backlog.md`, and pushed by Thomas (`context/handover.md`).
 
 ## Open
 
-- The TTS euro price (the page shows €0.01 beside $0.016 per 1,000 characters).
-- The two voices.
+- The TTS euro price for `voxtral-mini-tts-3` (€0.01 per 1,000 characters is assumed, as listed for 2603 beside $0.016).
 - The claims from secondary sources, and the hair oil's 96 h anti-frizz claim (perimeter.md, Risks).
-- The private GitHub repo.
-- The haircare expert (V1, spec 002 extended).
+- The haircare expert (spec 002 extended).
 - Presenter controls and reset between volunteers (spec 005).
-- The camera (spec 004, V2).
+- The camera (spec 004).
 - The tutorial list (`specs/006-journey/tutorials.md`), and whether the email should also be masked in the live transcript.

@@ -4,12 +4,13 @@ Voice product-discovery app shown live at the L'Oréal Learning Expedition on 20
 
 What matters on the day, in order: it works every time, it answers fast (voice latency is the blocker L'Oréal named for Beauty Genius), and every claim it speaks traces back to the catalogue.
 
-Owner: Thomas Taylor. Status: V0 specs approved (001 voice core, 002 discovery). `backend/` and `frontend/` arrive with spec 001, which also adds their run commands here.
+Owner: Thomas Taylor. Status: v2, demo-ready, on `main` at `0888b10` (2026-10-06). A new session starts with `context/handover.md`: the state, what changed since V1, the risks and how to carry on. Run commands are in `README.md`.
 
 ## Read first
 
 @context/INDEX.md
 
+- `context/handover.md` first, then `specs/v2/architecture.md` for the system as built.
 - `context/` holds read-only inputs, each opening with its source and date. Search it and open only what the task needs.
 - `specs/` holds one folder per stream of work. The active spec defines scope. `specs/000-architecture/spec.md` holds the decisions that frame every stream.
 - The Decathlon voice demo is the reference implementation, exported read-only to `/Users/thomas.taylor/Professional/Pre Sales/Retail/loreal/decathlon-reference`. Read `context/reference-map.md` first, then have an Explore subagent bring back only the excerpts the task needs. Decathlon names, data and styling stay out of this repo.
@@ -20,7 +21,7 @@ Owner: Thomas Taylor. Status: V0 specs approved (001 voice core, 002 discovery).
 AGENTS.md          this file, kept under 150 lines
 CLAUDE.md          imports this file for Claude Code
 context/           read-only inputs, indexed in context/INDEX.md
-specs/             one folder per stream: spec.md, plan.md, tasks.md
+specs/             one folder per stream: spec.md, plan.md, tasks.md; v0/ and v2/ per version
 backlog.md         fixes, cleanup and refactoring found but not scheduled
 backend/           FastAPI app, catalogue data, tests (spec 001)
 frontend/          Next.js app with its own AGENTS.md (spec 001)

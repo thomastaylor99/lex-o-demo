@@ -24,7 +24,7 @@ Out of scope: the haircare expert and any third specialist (V1, same mechanism);
 1. Welcome: the concierge's fixed line asks what the visitor is looking for.
 2. Handover: the concierge's model call is forced to `transfer_to_agent`; its handover line plays while the skincare expert's first reply streams.
 3. Diagnosis: the same five topics, in the same order, before any product: skin type, redness, the moisturiser they use now and how they find it, texture, then age range (optional). One question per turn, worded by the model from the visitor's words; a topic the visitor already answered is skipped, so it usually takes three or four turns. The main concern comes from the visitor's first sentence. See Diagnosis below.
-4. Recommendation: one best match and up to two alternatives; one spoken reason tied to the visitor's words and one approved claim. Prices and details stay on screen.
+4. Recommendation: one best match and up to two alternatives; one spoken reason tied to the visitor's words and one approved claim. Prices and details stay on screen. The product the expert presents first is always the one the screen marks "Top pick": the search result names it `top_pick`, and a reply in the search's turn that presents another product first, or none by name, gives way to the top pick's fixed presentation (its full name, its fit line, an approved claim word for word) (Thomas, 2026-10-06).
 5. Choice: the chosen products go into the basket.
 6. Routine: the expert completes the routine around the cream with catalogue pairings (cleanser, serum, sunscreen).
 7. Cross-sell: one question about hair, one haircare suggestion.

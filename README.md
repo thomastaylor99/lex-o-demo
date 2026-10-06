@@ -4,7 +4,7 @@ Voice product-discovery demo for the L'Oréal Learning Expedition on 2026-10-07.
 
 Start with `AGENTS.md`: layout, workflow and rules, for agents and people alike. Inputs live in `context/`, work is planned in `specs/`, and `scripts/verify` gives the verdict.
 
-How it is built: `specs/v1/architecture.md` (diagrams, agents, models, design system). Why: `context/decisions.md`.
+Where things stand: `context/handover.md`. How it is built: `specs/v2/architecture.md` (diagrams, agents, models, design system). Why: `context/decisions.md`.
 
 ## First-time setup
 

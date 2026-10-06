@@ -474,3 +474,53 @@ def test_replies_after_the_search_are_never_replaced():
     pick = "My top pick is CeraVe Moisturising Cream. Two alternatives are on screen."
 
     assert skincare.vet_reply(session, pick) == pick
+
+
+# ------------------------------------------------------------- the top pick, said and shown
+
+
+async def _searched(language: str = "en") -> tuple[AgentConfig, Session, list[dict[str, object]]]:
+    """A session whose turn just ran a search: dry, sensitive, rich, so fx-rich-dry comes first."""
+    tools = _tools()
+    session = _session(language=language, turn_index=3, history=_said("Rich, please."))
+    search = tools["search_products"]
+    args = search.args_model(
+        category="moisturiser", skin_type="dry", sensitive=True, texture_preference="rich"
+    )
+    await search.handler(session, args)
+    return build_skincare(MODEL, tools), session, session.flags["last_results"]
+
+
+async def test_a_reply_that_presents_the_top_pick_first_is_kept():
+    skincare, session, views = await _searched()
+    reply = f"My top pick is the {views[0]['name']}. Two alternatives are on screen."
+
+    assert skincare.vet_reply(session, reply) == reply
+
+
+async def test_a_reply_that_praises_another_result_presents_the_top_pick_instead():
+    skincare, session, views = await _searched()
+    reply = f"My top pick is the {views[1]['name']}. What do you think?"
+
+    said = skincare.vet_reply(session, reply)
+
+    assert said.startswith(f"My top pick for you is {views[0]['brand']} {views[0]['name']}.")
+    assert views[0]["claims"][0]["text"] in said
+    assert said.endswith("What do you think?")
+
+
+async def test_a_reply_that_names_no_result_presents_the_top_pick_in_french():
+    skincare, session, views = await _searched(language="fr")
+
+    said = skincare.vet_reply(session, "Voici ce que je vous propose.")
+
+    assert said.startswith(f"Mon premier choix pour vous : {views[0]['brand']} {views[0]['name']}.")
+    assert said.endswith("Qu'en pensez-vous ?")
+
+
+async def test_replies_in_later_turns_are_left_alone():
+    skincare, session, views = await _searched()
+    session.turn_index += 1
+    reply = f"The {views[1]['name']} is lighter, if you prefer."
+
+    assert skincare.vet_reply(session, reply) == reply

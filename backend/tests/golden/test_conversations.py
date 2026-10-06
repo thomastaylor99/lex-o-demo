@@ -14,11 +14,12 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
+from app.agents.skincare import _first_named
 from app.catalogue.store import Catalogue
 from app.lang import Language
 from app.voice.language import detect
 from tests.golden.judge import Judge
-from tests.golden.live import converse, handed_over
+from tests.golden.live import Turn, converse, handed_over
 
 pytestmark = pytest.mark.golden
 
@@ -96,6 +97,17 @@ def english(lines: list[str]) -> list[tuple[Language, str]]:
     return [("en", line) for line in lines]
 
 
+def assert_top_pick_said(turns: list[Turn]) -> None:
+    """The product marked "Top pick" on screen is the one the expert presents first."""
+    for turn in turns:
+        searches = [e for e in turn.events if e["type"] == "products.shown" and e["best_match_id"]]
+        if not searches:
+            continue
+        last = turn.events.index(searches[-1])
+        said = " ".join(e["text"] for e in turn.events[last:] if e["type"] == "text.done")
+        assert _first_named(said, searches[-1]["products"]) == searches[-1]["best_match_id"], said
+
+
 def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     turns = converse(live, english(GOLDEN_PATH_EN), typed_email=TYPED_EMAIL)
 
@@ -143,6 +155,7 @@ def test_golden_path_en(live: TestClient, catalogue: Catalogue, judge: Judge):
     assert profile["age_range"] == "30s", profile
     assert any("oréal" in (item["brand"] or "").lower() for item in profile["product_feedback"])
     assert profile["email"] == recap["email_masked"], profile
+    assert_top_pick_said(turns)
     breaches = judge.breaches(turns) + judge.recap_breaches(turns)
     assert not breaches, "\n".join(breaches)
 
@@ -171,6 +184,7 @@ def test_the_diagnosis_comes_before_any_product(live: TestClient, catalogue: Cat
     assert not [turn.reply() for turn in asking if any(n in turn.reply().lower() for n in names)]
     searches = answered.calls("search_products")
     assert searches, [event["type"] for event in answered.events]
+    assert_top_pick_said(turns)
     assert searches[0]["args"].get("texture_preference") == "light", searches[0]["args"]
 
 
