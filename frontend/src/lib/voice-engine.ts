@@ -22,6 +22,7 @@ import {
   type MicMode,
 } from "@/lib/api";
 import { parseEvent, type Language, type RecapReady, type StreamEvent } from "@/lib/events";
+import { endAfterMs, HOLD_MS } from "@/lib/hesitation";
 import { Mic } from "@/lib/mic";
 import { PcmPlayer, type SoundKind } from "@/lib/pcm-player";
 import { SpeechGate } from "@/lib/speech-gate";
@@ -259,12 +260,17 @@ export class VoiceEngine {
     const now = performance.now();
     // Right after the agent stops, its voice may still echo: nothing is heard yet, but the frames
     // stay in the pre-roll, so a quick "Yes" keeps its first word.
-    const event = now < this.listenFrom ? null : this.gate.frame(now, rms);
+    const event = now < this.listenFrom ? null : this.gate.frame(now, rms, this.endAfter());
     if (this.recording) this.recording.socket?.send(pcm);
     else this.keepPreRoll(pcm);
     if (event === "start" || event === "resume") this.beginSegment();
     else if (event === "soft_end") this.endSegment();
     else if (event === "end") this.endLine(this.gate.speechEnd);
+  }
+
+  /** The silence that ends the line: 700 ms once its words are in and look finished, else longer. */
+  private endAfter(): number {
+    return this.segments.some((s) => !s.final) ? HOLD_MS : endAfterMs(lineText(this.segments));
   }
 
   private keepPreRoll(pcm: Int16Array): void {
@@ -355,7 +361,9 @@ export class VoiceEngine {
       this.beginSegment();
     }
     this.showLine();
-    this.completeLine();
+    // The text comes just after 700 ms of silence: a line that looks finished ends now.
+    if (this.gate.silentFor(performance.now(), this.endAfter())) this.endLine(this.gate.speechEnd);
+    else this.completeLine();
   }
 
   /** Once the visitor has finished and every socket has given its final text, the turn runs. */
